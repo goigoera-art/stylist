@@ -105,6 +105,8 @@ select,.fld{background:var(--bg);border:1px solid var(--line);border-radius:10px
 .slot{position:absolute;display:grid;place-items:center}
 .slot img{max-width:100%;max-height:100%;object-fit:contain;mix-blend-mode:multiply;display:block}
 .slot svg{width:100%;height:100%}
+.better{background:var(--soft);border-radius:16px;padding:12px 14px}
+.better .why li svg{color:var(--accent)}
 .acclist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
 .acclist li{display:grid;grid-template-columns:52px minmax(0,1fr);gap:12px;align-items:start;font-size:14px}
 .acclist .thumb{background:#fff;border:1px solid var(--line)}
@@ -681,6 +683,43 @@ function accBlock(l,accs){
   if(!accs.length)return `<div class="small">Аксессуаров к этому образу пока нет. Добавьте сумку или украшения: они завершают образ.</div>`;
   return `<div><div class="label" style="margin-bottom:8px">Аксессуары и украшения</div><ul class="acclist">${accs.map(a=>`<li>${thumb(a)}<div><b>${esc(a.name)}</b><p>${esc(accWhy(l,a))}</p></div></li>`).join('')}</ul></div>`;
 }
+function improveTips(l,accs){
+  const st=l.style,has=s=>accs.some(a=>subOf(a)===s),out=[];
+  const warm=l.colors.some(c=>['beige','brown','yellow','orange','olive','khaki','red','burgundy'].includes(c));
+  const metal=warm?'золотистого':'серебристого';
+  const cold=l.seasons.includes(2)||l.seasons.includes(3);
+  const shoeC=l.shoes?CK[l.shoes.color].ru:null;
+  if(!has('bag')){
+    const kind={business:'структурная сумка строгой формы',evening:'небольшая сумка или клатч',streetwear:'рюкзак или сумка через плечо',sporty:'рюкзак или поясная сумка'}[st]||'сумка-шопер или сумка средней формы';
+    out.push(`Сумка: ${kind}${shoeC?`, лучше цвета обуви (${shoeC})`:', лучше нейтрального цвета'}. Она завершит образ и свяжет цвета.`);
+  }
+  if(!has('jewelry')){
+    const kind={minimal:'тонкая цепочка или маленькие серьги',evening:'выразительные серьги или браслет',business:'часы или небольшие серьги-гвоздики',streetwear:'массивная цепь или кольца',sporty:'спортивные часы'}[st]||'тонкий браслет или серьги';
+    out.push(`Украшения: ${kind} ${metal} металла. ${warm?'Тёплый металл поддержит тёплые оттенки образа.':'Холодный металл освежит нейтральную палитру.'}`);
+  }
+  const extra=accs.some(a=>['scarf','hat','belt','glasses'].includes(subOf(a)));
+  if(!extra){
+    if(st==='business')out.push(`Ремень${shoeC?` цвета обуви (${shoeC})`:''}: подчеркнёт талию и сделает образ аккуратнее.`);
+    else if(cold)out.push(`Шарф или шапка: добавят тепла и цвет рядом с лицом${l.h.type==='neutral'||l.h.type==='mono'?', удобное место для акцента':''}.`);
+    else out.push('Солнечные очки или кепка: быстрый способ добавить характер и защититься от солнца.');
+  }
+  if(l.h.type==='neutral'||l.h.type==='mono'){
+    const fav=S.f.colors[0]?`цвета «${CK[S.f.colors[0]].ru}»`:'яркого цвета, например бордового или зелёного';
+    out.push(`Цветной акцент: один предмет ${fav} (шарф, сумка или украшение) сделает палитру выразительнее.`);
+  }else if(l.h.type==='accent'){
+    out.push(`Повторите цвет акцента (${CK[l.h.acc[0]].ru}) в маленькой детали: сумка, шарф или серьги. Так акцент не будет случайным.`);
+  }else if(l.h.type==='print'){
+    out.push('Рисунок уже главный: аксессуары лучше брать однотонными, в цвете из рисунка или нейтральными.');
+  }
+  if(!l.outer&&(l.seasons.includes(0)||l.seasons.includes(2))){
+    out.push(`На случай прохлады: ${st==='business'?'пиджак или лёгкий плащ':'лёгкая куртка или кардиган'}.`);
+  }
+  return out.slice(0,5);
+}
+function improveBlock(l,accs){
+  const t=improveTips(l,accs);if(!t.length)return '';
+  return `<div class="better"><div class="label" style="margin-bottom:8px">Что добавить, чтобы образ смотрелся лучше</div><ul class="why">${t.map(x=>`<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span>${esc(x)}</span></li>`).join('')}</ul></div>`;
+}
 function lookCard(l){
   const st=l.style,accs=pickAccs(l);const items=l.items;
   const reasons=[];
@@ -700,7 +739,8 @@ function lookCard(l){
      <div class="pillrow">${l.occ.length?l.occ.map(k=>`<span class="pill o">${esc(OCC[k].n)}</span>`).join(''):'<span class="pill o">На каждый день</span>'}</div>
      <div class="small">${l.occ.length?esc(l.occ.slice(0,3).map(k=>OCC[k].t).join('; ')):'Любой повседневный выход.'}.</div>
      <div class="pillrow">${l.weather.map(k=>`<span class="pill">${WEATHER[k]}</span>`).join('')}${l.rainOk?'<span class="pill">Дождь</span>':''}<span class="pill">${esc(seasonTxt)}</span></div>
-   </div></article>`;
+   </div>
+   ${improveBlock(l,accs)}</article>`;
 }
 
 /* ===================== редактор вещи ===================== */
