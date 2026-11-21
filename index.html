@@ -100,7 +100,9 @@ select,.fld{background:var(--bg);border:1px solid var(--line);border-radius:10px
 .thumb{aspect-ratio:1;border-radius:12px;overflow:hidden;background:var(--bg);display:grid;place-items:center;position:relative}
 .thumb svg{width:70%;height:70%}
 .item .t{font-weight:600;font-size:14px;padding:0 4px;overflow-wrap:anywhere}
-.item .m{display:flex;align-items:center;gap:6px;padding:0 4px 4px;font-size:12px;color:var(--muted)}
+.item .m{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:0 4px 4px;font-size:12px;color:var(--muted)}
+.dots{display:inline-flex;flex:none}
+.dots .sw+.sw{margin-left:-5px}
 .addcard{border:2px dashed var(--line);background:transparent;color:var(--muted);align-items:center;justify-content:center;min-height:150px;text-decoration:none;font-weight:600;font-size:14px;text-align:center}
 
 /* looks */
@@ -238,6 +240,7 @@ const P=[
  ['Украшения','acc',0,4,'slim','evening,minimal','0123']
 ].map((a,i)=>({i,name:a[0],cat:a[1],w:a[2],f:a[3],fit:a[4],styles:a[5].split(','),seasons:[...a[6]].map(Number),rain:!!a[7]}));
 const FITS={slim:'облегающий',regular:'прямой',oversize:'свободный'};
+const PATS={solid:'Однотонная',print:'Принт',stripes:'Полоска',check:'Клетка',floral:'Цветочный принт',dots:'Горох',camo:'Камуфляж'};
 
 const DEMO=[
  ['Белая футболка',0,'#f2f2f0'],['Серое худи',6,'#8b8e95'],['Белая рубашка',1,'#f5f5f3'],['Синий свитер',5,'#22304f'],
@@ -245,7 +248,11 @@ const DEMO=[
  ['Чёрные джинсы',8,'#1e1e22'],['Серые брюки',9,'#8a8d94'],['Чёрные брюки',9,'#1b1b1f'],['Бежевые широкие брюки',10,'#d8c5a3'],
  ['Чёрная юбка',11,'#1d1d21'],['Серые спортивные штаны',13,'#9a9da4'],['Бежевое пальто',20,'#cdb894'],['Чёрная кожаная куртка',18,'#1d1d20'],
  ['Оливковый бомбер',17,'#666a3a'],['Ветровка',15,'#3a6aa8'],['Белые кроссовки',24,'#f1f1ef'],['Чёрные туфли',25,'#1a1a1d'],
- ['Коричневые ботинки',27,'#6e4a2e'],['Чёрное платье',23,'#1b1b1f'],['Коричневая сумка',29,'#7b5535'],['Бордовый шарф',31,'#6d1f2f']
+ ['Коричневые ботинки',27,'#6e4a2e'],['Чёрное платье',23,'#1b1b1f'],['Коричневая сумка',29,'#7b5535'],['Бордовый шарф',31,'#6d1f2f'],
+ ['Полосатая футболка',0,'#f2f2f0',{pattern:'stripes',colors:['white','navy']}],
+ ['Цветочное платье',22,'#e9a3bf',{pattern:'floral',colors:['pink','green','white']}],
+ ['Клетчатая рубашка',1,'#b02a2a',{pattern:'check',colors:['red','black'],styles:['casual','streetwear'],f:2}],
+ ['Худи с принтом',6,'#f0c93a',{pattern:'print',colors:['yellow','black','white']}]
 ];
 
 /* ===================== состояние ===================== */
@@ -254,16 +261,20 @@ let S={items:[],seeded:false,demo:false,f:{season:null,weather:null,rain:false,o
 let UI={cat:'all',style:'all',shown:{},queue:[],filtersOpen:true};
 function load(){
   try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);S=Object.assign(S,d);S.f=Object.assign({season:null,weather:null,rain:false,occ:null,colors:[]},d.f||{});}}catch(e){}
-  if(!S.seeded){S.items=DEMO.map(d=>mk(d[0],P[d[1]],d[2],null));S.seeded=true;S.demo=true;save();}
+  S.items.forEach(i=>{if(!i.colors){i.colors=[i.color];i.pattern='solid';}});
+  if(!S.seeded){S.items=DEMO.map(d=>mk(d[0],P[d[1]],d[2],null,d[3]));S.seeded=true;S.demo=true;save();}
+  else if(S.demo&&!S.items.some(i=>i.pattern!=='solid')){DEMO.filter(d=>d[3]).forEach(d=>S.items.push(mk(d[0],P[d[1]],d[2],null,d[3])));save();}
 }
 let warned=false;
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){if(!warned){warned=true;toast('Память браузера заполнена: часть фото не сохранится.');}}}
 function uid(){return 'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
-function mk(name,p,hex,img){return{id:uid(),name,cat:p.cat,hex,color:colorKey(hex),styles:[...p.styles],seasons:[...p.seasons],w:p.w,f:p.f,fit:p.fit,rain:p.rain,img,demo:!img};}
+function mk(name,p,hex,img,x){x=x||{};const colors=x.colors||[colorKey(hex)];
+  return{id:uid(),name,cat:p.cat,hex,color:colors[0],colors,pattern:x.pattern||'solid',styles:[...(x.styles||p.styles)],seasons:[...p.seasons],w:p.w,f:x.f??p.f,fit:p.fit,rain:p.rain,img,demo:!img};}
 
 /* ===================== цвет ===================== */
 function hexRgb(h){h=h.replace('#','');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
-function colorKey(hex){const [r,g,b]=hexRgb(hex);let best=null,bd=1e9;
+function colorKey(hex){const [r,g,b]=hexRgb(hex);return colorKeyRGB(r,g,b);}
+function colorKeyRGB(r,g,b){let best=null,bd=1e9;
   for(const c of COLORS){const [r2,g2,b2]=hexRgb(c[2]);const rm=(r+r2)/2;
     const d=(2+rm/256)*(r-r2)**2+4*(g-g2)**2+(2+(255-rm)/256)*(b-b2)**2;if(d<bd){bd=d;best=c[0];}}
   return best;}
@@ -274,8 +285,21 @@ const isDark=k=>['black','navy','brown','denim'].includes(k);
 
 /* ===================== подбор образов ===================== */
 let _cache=null;
-function sig(){return S.items.map(i=>[i.id,i.cat,i.color,i.styles,i.seasons,i.w,i.f,i.fit,i.rain].join('|')).join(';');}
+function sig(){return S.items.map(i=>[i.id,i.cat,i.color,i.colors,i.pattern,i.styles,i.seasons,i.w,i.f,i.fit,i.rain].join('|')).join(';');}
 function harmony(its){
+  const pats=its.filter(i=>i.pattern!=='solid'&&i.cat!=='acc');
+  if(pats.length){
+    const allKeys=[...new Set(its.flatMap(i=>i.colors))];
+    if(pats.length>1)return{s:30,type:'clash',text:'Два рисунка спорят друг с другом.',keys:allKeys,acc:[]};
+    const p=pats[0],pc=p.colors,others=its.filter(i=>i!==p);
+    if(others.some(i=>!CK[i.color].neutral&&!pc.includes(i.color)))return{s:45,type:'clash',text:'Цвет вещи спорит с рисунком.',keys:allKeys,acc:[]};
+    const match=others.filter(i=>pc.includes(i.color));
+    const pn=pc.every(k=>CK[k].neutral),cl=pc.map(k=>CK[k].ru).join(', ');
+    let s=86,text=pn?`«${p.name}» с рисунком в нейтральных цветах (${cl}) ведёт себя почти как однотонная вещь: остальное подобрать легко.`
+      :`Главная вещь образа — «${p.name}» (${cl}). Остальное спокойное, поэтому рисунок не спорит с одеждой.`;
+    if(match.length){s+=6;text+=` ${match.map(i=>i.name).join(' и ')}: цвет повторяет цвет из рисунка (${CK[match[0].color].ru}).`;}
+    return{s,type:'print',text,keys:allKeys,acc:[],pat:p};
+  }
   const keys=[...new Set(its.map(i=>i.color))];const acc=keys.filter(k=>!CK[k].neutral);const names=k=>CK[k].ru;
   let s,type,text;
   if(keys.length===1){s=78;type='mono';text=keys[0]==='black'?'Полностью чёрный образ: строго, стильно и без риска ошибиться с цветом.':`Всё в одном цвете («${names(keys[0])}»): образ выглядит цельно и дорого.`;}
@@ -293,6 +317,7 @@ function harmony(its){
 }
 function title(h){
   const n=k=>CK[k].ru;
+  if(h.type==='print')return PATS[h.pat.pattern]+' в центре внимания';
   if(h.type==='mono')return h.keys[0]==='black'?'Total black':'Один цвет: '+n(h.keys[0]);
   if(h.type==='neutral')return 'Нейтральная палитра';
   if(h.type==='accent')return 'Акцент: '+n(h.acc[0]);
@@ -337,7 +362,7 @@ function buildAll(){
     if(spread===2)sc-=15;else if(spread===1)sc-=3;
     const warm=all.reduce((a,i)=>a+i.w,0);
     looks.push({id:looks.length,style:best.st,base,outer:o,shoes:s,items:all,core,score:Math.min(99,Math.round(sc)),h,fitNote,spread,fAvg,seasons:seas,warm,
-      colors:[...new Set(all.map(i=>i.color))]});
+      colors:[...new Set(all.flatMap(i=>i.colors))],hasPat:all.some(i=>i.pattern!=='solid')});
   }
   for(const l of looks){l.weather=weatherOf(l);l.rainOk=!!(l.outer&&l.outer.rain&&(!l.shoes||l.shoes.w>=2));
     l.occ=Object.keys(OCC).filter(k=>{const o=OCC[k];return o.styles.includes(l.style)&&l.fAvg>=o.min&&l.fAvg<=o.max;});}
@@ -364,6 +389,8 @@ function passes(l,f,skip){
   if(skip!=='rain'&&f.rain&&!l.rainOk)return false;
   if(skip!=='occ'&&f.occ&&!l.occ.includes(f.occ))return false;
   if(skip!=='colors'&&f.colors.length&&!f.colors.some(c=>l.colors.includes(c)))return false;
+  if(skip!=='pat'&&f.pat==='with'&&!l.hasPat)return false;
+  if(skip!=='pat'&&f.pat==='without'&&l.hasPat)return false;
   return true;
 }
 function curate(){
@@ -395,9 +422,12 @@ function gaps(){
     if(!it.some(i=>i.cat==='outer'&&i.w>=3))out.push('Для холодной погоды нужна тёплая верхняя одежда (пальто или пуховик).');
     if(!it.some(i=>i.cat==='outer'&&i.rain))out.push('Для дождя нет подходящей вещи: добавьте ветровку или плащ либо отметьте «Защищает от дождя» в карточке куртки.');
   }
-  const base=it.filter(i=>CK[i.color].neutral&&(i.cat==='tops'||i.cat==='bottoms')).length;
+  const base=it.filter(i=>i.pattern==='solid'&&CK[i.color].neutral&&(i.cat==='tops'||i.cat==='bottoms')).length;
   if(it.length>=4&&base<3)out.push('Мало нейтральной базы: белая футболка, чёрные брюки или тёмные джинсы помогут сочетать яркие вещи.');
   const looks=buildAll(),have=new Set(looks.map(l=>l.style));
+  const used=new Set(looks.flatMap(l=>l.items.map(i=>i.id)));
+  const lonely=it.filter(i=>i.pattern!=='solid'&&i.cat!=='acc'&&!used.has(i.id));
+  if(lonely.length)out.push(`Для вещей с рисунком (${lonely.slice(0,3).map(i=>i.name).join(', ')}) не нашлось пары. Нужны спокойные однотонные вещи: нейтральные или цвета из рисунка.`);
   for(const st of Object.keys(STYLES)){
     if(have.has(st)||out.length>9)continue;
     const need=[];
@@ -422,6 +452,7 @@ function explainEmpty(){
   if(f.rain&&only('rain',l=>l.rainOk))out.push('Для дождя нужна ветровка или плащ. В карточке куртки отметьте «Защищает от дождя».');
   if(f.occ&&only('occ',l=>l.occ.includes(f.occ)))out.push(`Для случая «${OCC[f.occ].n.toLowerCase()}» не хватает вещей: ${OCC_NEED[f.occ]}.`);
   if(f.colors.length&&only('colors',l=>f.colors.some(c=>l.colors.includes(c))))out.push('В готовых образах нет выбранных цветов. Добавьте вещи этого цвета или уберите цвет из фильтра.');
+  if(f.pat==='with'&&only('pat',l=>l.hasPat))out.push('Нет образов с рисунком: добавьте вещь с принтом и однотонную пару к ней.');
   if(!out.length)out.push('Каждый фильтр по отдельности даёт образы, но вместе они ничего не оставляют. Снимите один из фильтров.');
   return out;
 }
@@ -435,13 +466,29 @@ const SHAPES={
  shoes:'M8 40c0-6 6-8 12-6l6-10 6 4c4 4 12 6 22 8 4 2 4 10 0 10H10c-2 0-2-2-2-6z',
  acc:'M14 24h36l4 30H10z'
 };
-function icon(it){const c=it.hex;const extra=it.cat==='acc'?'<path d="M23 24v-6c0-8 18-8 18 0v6" fill="none" stroke="rgba(120,120,130,.8)" stroke-width="3" stroke-linecap="round"/>':'';
-  return `<svg viewBox="0 0 64 64" aria-hidden="true">${extra}<path d="${SHAPES[it.cat]}" fill="${esc(c)}" stroke="rgba(120,120,130,.6)" stroke-width="1.5" stroke-linejoin="round"/></svg>`;}
+let _ic=0;
+function patSvg(it){
+  const p=it.pattern;if(p==='solid')return '';
+  const cs=it.colors.map((k,i)=>i===0?it.hex:CK[k].hex);
+  const a=cs[1]||'rgba(255,255,255,.55)',b=cs[2]||cs[0],c3=cs[3]||a;let o='';
+  if(p==='stripes'||p==='check')for(let y=2;y<64;y+=9)o+=`<rect x="0" y="${y}" width="64" height="4" fill="${a}"/>`;
+  if(p==='check')for(let x=2;x<64;x+=9)o+=`<rect x="${x}" y="0" width="4" height="64" fill="${a}" opacity=".6"/>`;
+  if(p==='dots')for(let y=6;y<64;y+=10)for(let x=((y/10|0)%2)?11:6;x<64;x+=10)o+=`<circle cx="${x}" cy="${y}" r="2.6" fill="${a}"/>`;
+  if(p==='floral'){let n=0;for(let y=8;y<64;y+=14){const s=(n++%2)?16:9;for(let x=s;x<64;x+=14)o+=`<circle cx="${x}" cy="${y}" r="4" fill="${a}"/><circle cx="${x}" cy="${y}" r="1.6" fill="${b}"/><circle cx="${x+5}" cy="${y+6}" r="2" fill="${c3}"/>`;}}
+  if(p==='camo'){const cl=[a,b,c3];[[14,14],[40,10],[28,30],[52,34],[12,48],[38,52]].forEach((q,i)=>{o+=`<ellipse cx="${q[0]}" cy="${q[1]}" rx="9" ry="5" fill="${cl[i%3]}" transform="rotate(${i*35} ${q[0]} ${q[1]})"/>`;});}
+  if(p==='print'){const cl=[a,b,c3];[[14,14],[36,12],[52,24],[22,34],[44,44],[14,52],[34,56]].forEach((q,i)=>{o+=i%2?`<rect x="${q[0]-5}" y="${q[1]-5}" width="10" height="10" fill="${cl[i%3]}" transform="rotate(${i*20} ${q[0]} ${q[1]})"/>`:`<circle cx="${q[0]}" cy="${q[1]}" r="6" fill="${cl[i%3]}"/>`;});}
+  return o;
+}
+function icon(it){const id='c'+(++_ic);const c=it.hex;const extra=it.cat==='acc'?'<path d="M23 24v-6c0-8 18-8 18 0v6" fill="none" stroke="rgba(120,120,130,.8)" stroke-width="3" stroke-linecap="round"/>':'';
+  const ov=patSvg(it),sh=SHAPES[it.cat];
+  return `<svg viewBox="0 0 64 64" aria-hidden="true"><defs><clipPath id="${id}"><path d="${sh}"/></clipPath></defs>${extra}<path d="${sh}" fill="${esc(c)}"/>${ov?`<g clip-path="url(#${id})">${ov}</g>`:''}<path d="${sh}" fill="none" stroke="rgba(120,120,130,.6)" stroke-width="1.5" stroke-linejoin="round"/></svg>`;}
 function thumb(it){return `<div class="thumb">${it.img?`<img src="${it.img}" alt="${esc(it.name)}">`:icon(it)}</div>`;}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function plural(n,a,b,c){n=Math.abs(n)%100;const m=n%10;if(n>10&&n<20)return c;if(m>1&&m<5)return b;if(m===1)return a;return c;}
 const $=s=>document.querySelector(s);
 function toast(t){const d=document.createElement('div');d.className='toast';d.textContent=t;document.body.append(d);setTimeout(()=>d.remove(),3200);}
+const dots=it=>`<span class="dots">${[it.hex,...it.colors.slice(1).map(k=>CK[k].hex)].map(h=>`<span class="sw" style="background:${esc(h)}"></span>`).join('')}</span>`;
+const cname=it=>it.colors.map(k=>CK[k].ru).join(', ')+(it.pattern!=='solid'?' · '+PATS[it.pattern].toLowerCase():'');
 const CHECK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 
 /* ===================== экраны ===================== */
@@ -469,6 +516,7 @@ function vUpload(){return `
     <div class="tip"><b>Одна вещь на фото.</b> Так распознавание точнее.</div>
     <div class="tip"><b>Светлый ровный фон.</b> Положите вещь на кровать или повесьте на стену.</div>
     <div class="tip"><b>Вещь целиком.</b> Видны крой и цвет без теней.</div>
+    <div class="tip"><b>Принты тоже можно.</b> Полоска, клетка, цветы, разноцветные вещи: в карточке выберите рисунок и до 4 цветов.</div>
   </div>
   <div class="queue" id="queue"></div>`;}
 
@@ -480,7 +528,7 @@ function updateQueue(){
       :r.state==='ai'?`<span class="stat-ok">Распознано: ${esc(CATS[it?.cat]||'')}</span>`
       :`<span class="stat-warn">${esc(r.msg||'Выберите тип вещи вручную')}</span>`;
     return `<div class="qrow"><div class="th"><img src="${r.thumb}" alt=""></div><div class="bd">
-      <div class="nm">${it?esc(it.name):'Фото'} ${it?`<span class="chip"><span class="sw" style="background:${esc(it.hex)}"></span>${esc(CK[it.color].ru)}</span>`:''}</div>
+      <div class="nm">${it?esc(it.name):'Фото'} ${it?`<span class="chip">${dots(it)}${esc(cname(it))}</span>`:''}</div>
       ${status}
       ${it?`<div class="chips"><select data-act="qpreset" data-id="${it.id}" aria-label="Тип вещи">${presetOptions(r.state==='ai'?matchPreset(it):-1)}</select><button class="btn ghost sm" data-act="edit" data-id="${it.id}">Изменить</button></div>`:''}
     </div></div>`;}).join('');
@@ -492,19 +540,20 @@ function matchPreset(it){const p=P.find(p=>p.cat===it.cat&&it.name.toLowerCase()
 
 function vWardrobe(){
   const cnt=c=>S.items.filter(i=>i.cat===c).length;
-  const list=S.items.filter(i=>UI.cat==='all'||i.cat===UI.cat);
+  const list=S.items.filter(i=>(UI.cat==='all'||i.cat===UI.cat)&&(!UI.pat||i.pattern!=='solid'));
   return `
   <h1>Ваш гардероб</h1>
   <p class="lead">Нажмите на вещь, чтобы поправить тип, цвет, стили или сезон. От этих данных зависят образы.</p>
   ${demoBanner()}
   <div class="chips" style="margin-bottom:14px" role="group" aria-label="Категории">
+    <button class="chip" data-act="wpat" aria-pressed="${!!UI.pat}">С принтом <span class="n">${S.items.filter(i=>i.pattern!=='solid').length}</span></button>
     <button class="chip" data-act="cat" data-v="all" aria-pressed="${UI.cat==='all'}">Все <span class="n">${S.items.length}</span></button>
     ${Object.keys(CATS).map(c=>`<button class="chip" data-act="cat" data-v="${c}" aria-pressed="${UI.cat===c}">${CATS[c]} <span class="n">${cnt(c)}</span></button>`).join('')}
   </div>
   ${list.length?'':`<div class="panel empty">В этой категории пока пусто.</div>`}
   <div class="grid">
     ${list.map(it=>`<button class="item" data-act="edit" data-id="${it.id}">${thumb(it)}<div class="t">${esc(it.name)}</div>
-      <div class="m"><span class="sw" style="background:${esc(it.hex)}"></span>${esc(CK[it.color].ru)} · ${esc(STYLES[it.styles[0]]?.n||'')}</div></button>`).join('')}
+      <div class="m">${dots(it)}<span>${esc(cname(it))} · ${esc(STYLES[it.styles[0]]?.n||'')}</span></div></button>`).join('')}
     <a class="item addcard" href="#upload"><span>+ Добавить вещь</span></a>
   </div>
   ${gapsBlock('Чего не хватает в гардеробе',gaps())}`;}
@@ -517,8 +566,8 @@ function fchips(group,opts,sel,multi){
 
 function vLooks(){
   const f=S.f,res=curate();
-  const present=[...new Set(S.items.map(i=>i.color))];
-  const active=(f.season!==null?1:0)+(f.weather?1:0)+(f.rain?1:0)+(f.occ?1:0)+f.colors.length;
+  const present=[...new Set(S.items.flatMap(i=>i.colors))];
+  const active=(f.season!==null?1:0)+(f.weather?1:0)+(f.rain?1:0)+(f.occ?1:0)+(f.pat?1:0)+f.colors.length;
   const styleKeys=Object.keys(STYLES).filter(s=>res[s]?.length);
   const total=styleKeys.reduce((a,s)=>a+res[s].length,0);
   const shownStyles=UI.style==='all'?styleKeys:styleKeys.filter(s=>s===UI.style);
@@ -531,6 +580,7 @@ function vLooks(){
       <div class="frow"><span class="label">Погода</span><div class="chips">${Object.keys(WEATHER).map(k=>`<button class="chip" data-act="f-weather" data-v="${k}" aria-pressed="${f.weather===k}">${WEATHER[k]}</button>`).join('')}<button class="chip" data-act="f-rain" aria-pressed="${f.rain}">Дождь</button></div></div>
       <div class="frow"><span class="label">Случай</span>${fchips('occ',Object.keys(OCC).map(k=>({v:k,t:OCC[k].n})),f.occ,false)}</div>
       <div class="frow"><span class="label">Любимые цвета</span>${present.length?fchips('color',present.map(k=>({v:k,t:CK[k].ru,sw:CK[k].hex})),f.colors,true):'<span class="small">Добавьте вещи, чтобы выбрать цвета.</span>'}</div>
+      <div class="frow"><span class="label">Принты</span><div class="chips"><button class="chip" data-act="f-pat" data-v="with" aria-pressed="${f.pat==='with'}">С принтом</button><button class="chip" data-act="f-pat" data-v="without" aria-pressed="${f.pat==='without'}">Только однотонные</button></div></div>
       ${active?`<div><button class="btn ghost sm" data-act="f-reset">Сбросить фильтры</button></div>`:''}
     </div></details></div>`;
   if(total){
@@ -564,7 +614,7 @@ function lookCard(l){
   return `<article class="look">
    <div class="hd"><div><div class="label">${STYLES[st].n}</div><div class="ttl">${esc(title(l.h))}</div></div><div class="score" title="Насколько хорошо вещи сочетаются">${l.score}<small>из 100</small></div></div>
    <div class="collage" style="grid-template-columns:repeat(${items.length>4?3:items.length>2?items.length:2},minmax(0,1fr))">${items.map(thumb).join('')}</div>
-   <div><div class="label" style="margin-bottom:8px">Из вашего гардероба</div><ul class="ilist">${items.map(i=>`<li><span class="sw" style="background:${esc(i.hex)}"></span><span class="nm">${esc(i.name)}</span><span class="cat">${CATS[i.cat]}</span></li>`).join('')}</ul></div>
+   <div><div class="label" style="margin-bottom:8px">Из вашего гардероба</div><ul class="ilist">${items.map(i=>`<li>${dots(i)}<span class="nm">${esc(i.name)}</span><span class="cat">${CATS[i.cat]}</span></li>`).join('')}</ul></div>
    <div><div class="label" style="margin-bottom:8px">Почему сочетается</div><ul class="why">${reasons.map(r=>`<li>${CHECK}<span>${esc(r)}</span></li>`).join('')}</ul></div>
    <div class="where"><div class="label">Куда подойдёт</div>
      <div class="pillrow">${l.occ.length?l.occ.map(k=>`<span class="pill o">${esc(OCC[k].n)}</span>`).join(''):'<span class="pill o">На каждый день</span>'}</div>
@@ -582,7 +632,8 @@ function openEdit(id){
      <div class="row"><label class="label" for="e-name">Название</label><input class="fld" type="text" id="e-name" value="${esc(it.name)}" maxlength="60"></div></div>
    <div class="row"><label class="label" for="e-preset">Тип вещи (подставит стили, сезон и тепло)</label><select id="e-preset">${presetOptions(matchPreset(it))}</select></div>
    <div class="row"><label class="label" for="e-cat">Категория</label><select id="e-cat">${Object.keys(CATS).map(c=>`<option value="${c}" ${c===it.cat?'selected':''}>${CATS[c]}</option>`).join('')}</select></div>
-   <div class="row"><span class="label">Цвет</span><div class="chips" id="e-color">${COLORS.map(c=>`<button type="button" class="chip" data-c="${c[0]}" aria-pressed="${c[0]===it.color}"><span class="sw" style="background:${c[2]}"></span>${c[1]}</button>`).join('')}</div></div>
+   <div class="row"><label class="label" for="e-pat">Рисунок</label><select id="e-pat">${Object.keys(PATS).map(k=>`<option value="${k}" ${k===it.pattern?'selected':''}>${PATS[k]}</option>`).join('')}</select></div>
+   <div class="row"><span class="label">Цвета (для принта выберите до 4, первый основной)</span><div class="chips" id="e-color">${COLORS.map(c=>`<button type="button" class="chip" data-c="${c[0]}" aria-pressed="${it.colors.includes(c[0])}"><span class="sw" style="background:${c[2]}"></span>${c[1]}</button>`).join('')}</div></div>
    <div class="row"><span class="label">Стили</span><div class="chips" id="e-styles">${Object.keys(STYLES).map(s=>`<button type="button" class="chip" data-s="${s}" aria-pressed="${it.styles.includes(s)}">${STYLES[s].n}</button>`).join('')}</div></div>
    <div class="row"><span class="label">Сезоны</span><div class="chips" id="e-seas">${SEASONS.map((s,i)=>`<button type="button" class="chip" data-n="${i}" aria-pressed="${it.seasons.includes(i)}">${s}</button>`).join('')}</div></div>
    <div class="row"><label class="label" for="e-w">Тепло: <b id="e-wv"></b></label><input type="range" id="e-w" min="0" max="4" step="1" value="${it.w}"></div>
@@ -594,9 +645,16 @@ function openEdit(id){
   const WV=['нет','лёгкая','средняя','тёплая','очень тёплая'],FV=['','спорт, дом','повседневно','смарт-кэжуал','деловой','парадный'];
   const upd=()=>{$('#e-wv').textContent=WV[$('#e-w').value];$('#e-fv').textContent=FV[$('#e-f').value];};upd();
   $('#e-w').oninput=upd;$('#e-f').oninput=upd;
+  let selC=[...it.colors];
+  const paintC=()=>$('#e-color').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',selC.includes(x.dataset.c)));
   const tog=(box)=>box.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
-    if(box.id==='e-color'){box.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));b.setAttribute('aria-pressed','true');}
+    if(box.id==='e-color'){const k=b.dataset.c;
+      if($('#e-pat').value==='solid')selC=[k];
+      else if(selC.includes(k)){if(selC.length>1)selC=selC.filter(x=>x!==k);}
+      else if(selC.length<4)selC.push(k);else toast('Не больше четырёх цветов.');
+      paintC();}
     else b.setAttribute('aria-pressed',b.getAttribute('aria-pressed')==='true'?'false':'true');});
+  $('#e-pat').onchange=()=>{if($('#e-pat').value==='solid'&&selC.length>1){selC=[selC[0]];paintC();}};
   ['#e-color','#e-styles','#e-seas'].forEach(s=>tog($(s)));
   $('#e-preset').onchange=e=>{const p=P[+e.target.value];if(!p)return;
     $('#e-cat').value=p.cat;if(!$('#e-name').value.trim()||P.some(x=>$('#e-name').value.includes(x.name)))$('#e-name').value=p.name;
@@ -612,8 +670,8 @@ function openEdit(id){
     const st=[...$('#e-styles').querySelectorAll('[aria-pressed=true]')].map(b=>b.dataset.s);
     const se=[...$('#e-seas').querySelectorAll('[aria-pressed=true]')].map(b=>+b.dataset.n);
     if(!st.length||!se.length){toast('Выберите хотя бы один стиль и один сезон.');return;}
-    const ck=$('#e-color [aria-pressed=true]')?.dataset.c||it.color;
-    Object.assign(it,{name:$('#e-name').value.trim()||'Вещь',cat:$('#e-cat').value,color:ck,hex:ck===it.color?it.hex:CK[ck].hex,styles:st,seasons:se,
+    const cols=selC.length?selC:[it.color],ck=cols[0];
+    Object.assign(it,{name:$('#e-name').value.trim()||'Вещь',cat:$('#e-cat').value,color:ck,colors:cols,pattern:$('#e-pat').value,hex:ck===it.color?it.hex:CK[ck].hex,styles:st,seasons:se,
       w:+$('#e-w').value,f:+$('#e-f').value,fit:$('#e-fit').value,rain:$('#e-rain').checked});
     save();close();render();toast('Сохранено');};
 }
@@ -627,27 +685,32 @@ async function prepare(file){
   const im=await loadImg(file);const m=640,k=Math.min(1,m/Math.max(im.width,im.height));
   const w=Math.round(im.width*k),h=Math.round(im.height*k);const c=document.createElement('canvas');c.width=w;c.height=h;
   const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(im,0,0,w,h);
-  const hex=dominant(x,w,h);
+  const dm=dominant(x,w,h);
   const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.82));
-  return{img:c.toDataURL('image/jpeg',.74),hex,blob};
+  return{img:c.toDataURL('image/jpeg',.74),hex:dm.hex,cols:dm.cols,blob};
 }
 function dominant(x,w,h){
   const px=x.getImageData(0,0,w,h).data;
   const edge=[];const take=(i,j)=>{const o=(j*w+i)*4;edge.push([px[o],px[o+1],px[o+2]]);};
   for(let i=0;i<w;i+=Math.max(1,w>>4)){take(i,0);take(i,h-1);}for(let j=0;j<h;j+=Math.max(1,h>>4)){take(0,j);take(w-1,j);}
   const bg=edge.reduce((a,e)=>[a[0]+e[0]/edge.length,a[1]+e[1]/edge.length,a[2]+e[2]/edge.length],[0,0,0]);
-  let n=0,r=0,g=0,b=0,n2=0,r2=0,g2=0,b2=0;
+  let n=0,n2=0;const K={},K2={};
+  const add=(M,k,o)=>{const m=M[k]||(M[k]=[0,0,0,0]);m[0]+=px[o];m[1]+=px[o+1];m[2]+=px[o+2];m[3]++;};
   for(let j=Math.floor(h*.2);j<h*.8;j+=2)for(let i=Math.floor(w*.2);i<w*.8;i+=2){const o=(j*w+i)*4;
-    r2+=px[o];g2+=px[o+1];b2+=px[o+2];n2++;
+    const k=colorKeyRGB(px[o],px[o+1],px[o+2]);add(K2,k,o);n2++;
     const d=Math.abs(px[o]-bg[0])+Math.abs(px[o+1]-bg[1])+Math.abs(px[o+2]-bg[2]);
-    if(d>70){r+=px[o];g+=px[o+1];b+=px[o+2];n++;}}
-  if(n<n2*.08){r=r2;g=g2;b=b2;n=n2;}
-  const hx=v=>Math.round(v/n).toString(16).padStart(2,'0');return '#'+hx(r)+hx(g)+hx(b);
+    if(d>70){add(K,k,o);n++;}}
+  const useAll=n<n2*.08,M=useAll?K2:K,tot=useAll?n2:n;
+  const ks=Object.keys(M).sort((a,b)=>M[b][3]-M[a][3]);
+  const top=ks.filter(k=>M[k][3]>=tot*.22).slice(0,4);
+  const lead=top[0]||ks[0],m=M[lead];
+  const hx=v=>Math.round(v/m[3]).toString(16).padStart(2,'0');
+  return{hex:'#'+hx(m[0])+hx(m[1])+hx(m[2]),cols:top.length?top:[lead]};
 }
 const PROMPT=`На фото одна вещь гардероба (одежда, обувь или аксессуар). Определи её.
 Ответь только JSON-объектом без пояснений:
-{"category":"tops|bottoms|outer|dresses|shoes|acc","name":"короткое русское название с цветом, например Белая футболка","color":"#rrggbb основной цвет самой вещи без фона","styles":["casual","streetwear","business","minimal","sporty","evening"],"seasons":[0,1,2,3],"warmth":0,"formality":1,"fit":"slim|regular|oversize","rain":false}
-Пояснения: category: tops верх, bottoms низ, outer верхняя одежда, dresses платья, shoes обувь, acc аксессуары.
+{"category":"tops|bottoms|outer|dresses|shoes|acc","name":"короткое русское название с цветом, например Белая футболка","pattern":"solid|print|stripes|check|floral|dots|camo","colors":["#rrggbb"],"styles":["casual","streetwear","business","minimal","sporty","evening"],"seasons":[0,1,2,3],"warmth":0,"formality":1,"fit":"slim|regular|oversize","rain":false}
+Пояснения: pattern: solid однотонная, print абстрактный рисунок или надпись, stripes полоска, check клетка, floral цветы, dots горох, camo камуфляж. colors: от 1 до 4 основных цветов самой вещи без фона (для однотонной один), главный цвет первым. category: tops верх, bottoms низ, outer верхняя одежда, dresses платья, shoes обувь, acc аксессуары.
 styles: от 1 до 3 подходящих стилей, главный первым. seasons: когда носят (0 весна, 1 лето, 2 осень, 3 зима). warmth: 0 нет, 1 лёгкая, 2 средняя, 3 тёплая, 4 очень тёплая. formality: 1 спорт или дом, 3 смарт-кэжуал, 5 парадная. rain: true, если вещь защищает от дождя.`;
 async function recognize(blob){
   if(!sampleFn||!aiOK)return null;
@@ -657,7 +720,8 @@ async function recognize(blob){
     const styles=(Array.isArray(r.styles)?r.styles:[]).filter(s=>STYLES[s]);
     const seasons=(Array.isArray(r.seasons)?r.seasons:[]).map(Number).filter(n=>n>=0&&n<4);
     const clamp=(v,a,b,d)=>Number.isFinite(+v)?Math.min(b,Math.max(a,Math.round(+v))):d;
-    return{cat:r.category,name:String(r.name||'').slice(0,60),hex:/^#[0-9a-f]{6}$/i.test(r.color||'')?r.color:null,styles,seasons,
+    const hexes=(Array.isArray(r.colors)?r.colors:[r.color]).filter(h=>/^#[0-9a-f]{6}$/i.test(h||'')).slice(0,4);
+    return{cat:r.category,name:String(r.name||'').slice(0,60),hex:hexes[0]||null,hexes,pattern:PATS[r.pattern]?r.pattern:'solid',styles,seasons,
       w:clamp(r.warmth,0,4,2),f:clamp(r.formality,1,5,2),fit:FITS[r.fit]?r.fit:'regular',rain:!!r.rain};
   }catch(e){return {err:e&&e.code||'x'};}
 }
@@ -673,11 +737,14 @@ async function handleFiles(files){
       if(ai&&!ai.err&&ai.name){
         const p=P.find(p=>p.cat===ai.cat)||P[0];
         const hex=ai.hex||pr.hex;
-        it={id:uid(),name:ai.name,cat:ai.cat,hex,color:colorKey(hex),styles:ai.styles.length?ai.styles:[...p.styles],seasons:ai.seasons.length?ai.seasons:[...p.seasons],
+        let cols=[...new Set((ai.hexes.length?ai.hexes:[hex]).map(colorKey))];
+        const pattern=cols.length>1&&ai.pattern==='solid'?'print':ai.pattern;
+        if(pattern==='solid')cols=[cols[0]];
+        it={id:uid(),name:ai.name,cat:ai.cat,hex,color:cols[0],colors:cols,pattern,styles:ai.styles.length?ai.styles:[...p.styles],seasons:ai.seasons.length?ai.seasons:[...p.seasons],
           w:ai.w,f:ai.f,fit:ai.fit,rain:ai.rain,img:pr.img};r.state='ai';
       }else{
-        const p=P[0];it=mk('Новая вещь',p,pr.hex,pr.img);r.state='manual';
-        r.msg=!sampleFn||!aiOK?'Авто-распознавание недоступно здесь. Выберите тип вещи, цвет определён по фото.':ai?.err==='not_granted'?'Распознавание отключено. Выберите тип вещи, цвет определён по фото.':'Не удалось распознать. Выберите тип вещи, цвет определён по фото.';
+        const p=P[0];it=mk('Новая вещь',p,pr.hex,pr.img,pr.cols.length>1?{colors:pr.cols,pattern:'print'}:null);r.state='manual';
+        r.msg=(pr.cols.length>1?'Нашёл несколько цветов, вещь отмечена как принт: проверьте. ':'')+(!sampleFn||!aiOK?'Авто-распознавание недоступно здесь. Выберите тип вещи, цвет определён по фото.':ai?.err==='not_granted'?'Распознавание отключено. Выберите тип вещи, цвет определён по фото.':'Не удалось распознать. Выберите тип вещи, цвет определён по фото.');
       }
       S.items.unshift(it);r.itemId=it.id;save();$('#count').textContent=S.items.length+' '+plural(S.items.length,'вещь','вещи','вещей');
     }catch(e){r.state='manual';r.msg='Не удалось прочитать файл. Попробуйте другое фото.';}
@@ -699,6 +766,8 @@ document.addEventListener('click',e=>{
   else if(a==='f-rain')f.rain=!f.rain;
   else if(a==='f-occ')f.occ=f.occ===v?null:v;
   else if(a==='f-color')f.colors=f.colors.includes(v)?f.colors.filter(c=>c!==v):[...f.colors,v];
+  else if(a==='f-pat')f.pat=f.pat===v?null:v;
+  else if(a==='wpat')UI.pat=!UI.pat;
   else if(a==='f-reset')S.f={season:null,weather:null,rain:false,occ:null,colors:[]};
   else return;
   if(a.startsWith('f-')){UI.shown={};save();}
