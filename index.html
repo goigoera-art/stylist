@@ -101,6 +101,15 @@ select,.fld{background:var(--bg);border:1px solid var(--line);border-radius:10px
 .thumb svg{width:70%;height:70%}
 .item .t{font-weight:600;font-size:14px;padding:0 4px;overflow-wrap:anywhere}
 .item .m{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:0 4px 4px;font-size:12px;color:var(--muted)}
+.board{position:relative;aspect-ratio:4/5;width:100%;max-width:100%;background:#fff;border-radius:16px;border:1px solid var(--line);overflow:hidden}
+.slot{position:absolute;display:grid;place-items:center}
+.slot img{max-width:100%;max-height:100%;object-fit:contain;mix-blend-mode:multiply;display:block}
+.slot svg{width:100%;height:100%}
+.acclist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.acclist li{display:grid;grid-template-columns:52px minmax(0,1fr);gap:12px;align-items:start;font-size:14px}
+.acclist .thumb{background:#fff;border:1px solid var(--line)}
+.acclist b{font-weight:600}
+.acclist p{margin:2px 0 0;font-size:13px;color:var(--muted)}
 .dots{display:inline-flex;flex:none}
 .dots .sw+.sw{margin-left:-5px}
 .addcard{border:2px dashed var(--line);background:transparent;color:var(--muted);align-items:center;justify-content:center;min-height:150px;text-decoration:none;font-weight:600;font-size:14px;text-align:center}
@@ -237,7 +246,12 @@ const P=[
  ['Шарф','acc',1,2,'regular','casual,minimal,business,streetwear','23'],
  ['Кепка','acc',0,1,'regular','casual,streetwear,sporty','012'],
  ['Ремень','acc',0,3,'regular','business,casual,minimal','0123'],
- ['Украшения','acc',0,4,'slim','evening,minimal','0123']
+ ['Украшения','acc',0,4,'slim','evening,minimal,casual,business','0123'],
+ ['Серьги','acc',0,4,'slim','evening,minimal,casual,business','0123'],
+ ['Браслет','acc',0,3,'slim','minimal,evening,casual,business,streetwear','0123'],
+ ['Часы','acc',0,4,'regular','business,minimal,casual,sporty','0123'],
+ ['Очки','acc',0,2,'regular','casual,streetwear,minimal,sporty,evening','012'],
+ ['Шапка','acc',1,1,'regular','casual,streetwear,sporty','23']
 ].map((a,i)=>({i,name:a[0],cat:a[1],w:a[2],f:a[3],fit:a[4],styles:a[5].split(','),seasons:[...a[6]].map(Number),rain:!!a[7]}));
 const FITS={slim:'облегающий',regular:'прямой',oversize:'свободный'};
 const PATS={solid:'Однотонная',print:'Принт',stripes:'Полоска',check:'Клетка',floral:'Цветочный принт',dots:'Горох',camo:'Камуфляж'};
@@ -252,7 +266,9 @@ const DEMO=[
  ['Полосатая футболка',0,'#f2f2f0',{pattern:'stripes',colors:['white','navy']}],
  ['Цветочное платье',22,'#e9a3bf',{pattern:'floral',colors:['pink','green','white']}],
  ['Клетчатая рубашка',1,'#b02a2a',{pattern:'check',colors:['red','black'],styles:['casual','streetwear'],f:2}],
- ['Худи с принтом',6,'#f0c93a',{pattern:'print',colors:['yellow','black','white']}]
+ ['Худи с принтом',6,'#f0c93a',{pattern:'print',colors:['yellow','black','white']}],
+ ['Серебряный браслет',36,'#b9bcc4'],['Золотые серьги',35,'#d4af37'],['Часы с чёрным ремешком',37,'#1b1b1f'],
+ ['Чёрные солнечные очки',38,'#1b1b1f'],['Серая шапка',39,'#8d9097']
 ];
 
 /* ===================== состояние ===================== */
@@ -262,8 +278,8 @@ let UI={cat:'all',style:'all',shown:{},queue:[],filtersOpen:true};
 function load(){
   try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);S=Object.assign(S,d);S.f=Object.assign({season:null,weather:null,rain:false,occ:null,colors:[]},d.f||{});}}catch(e){}
   S.items.forEach(i=>{if(!i.colors){i.colors=[i.color];i.pattern='solid';}});
-  if(!S.seeded){S.items=DEMO.map(d=>mk(d[0],P[d[1]],d[2],null,d[3]));S.seeded=true;S.demo=true;save();}
-  else if(S.demo&&!S.items.some(i=>i.pattern!=='solid')){DEMO.filter(d=>d[3]).forEach(d=>S.items.push(mk(d[0],P[d[1]],d[2],null,d[3])));save();}
+  if(!S.seeded){S.items=DEMO.map(d=>mk(d[0],P[d[1]],d[2],null,d[3]));S.seeded=true;S.demo=true;S.v=3;save();}
+  else if((S.v||0)<3){S.v=3;if(S.demo)DEMO.forEach(d=>{if(!S.items.some(i=>i.name===d[0]))S.items.push(mk(d[0],P[d[1]],d[2],null,d[3]));});save();}
 }
 let warned=false;
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){if(!warned){warned=true;toast('Память браузера заполнена: часть фото не сохранится.');}}}
@@ -424,6 +440,8 @@ function gaps(){
   }
   const base=it.filter(i=>i.pattern==='solid'&&CK[i.color].neutral&&(i.cat==='tops'||i.cat==='bottoms')).length;
   if(it.length>=4&&base<3)out.push('Мало нейтральной базы: белая футболка, чёрные брюки или тёмные джинсы помогут сочетать яркие вещи.');
+  if(it.length>=4&&!it.some(i=>subOf(i)==='jewelry'))out.push('Нет украшений: серьги, браслет или часы завершают образ и делают его дороже.');
+  if(it.length>=4&&!it.some(i=>subOf(i)==='bag'))out.push('Нет сумки: она нужна почти каждому образу, лучше нейтрального цвета.');
   const looks=buildAll(),have=new Set(looks.map(l=>l.style));
   const used=new Set(looks.flatMap(l=>l.items.map(i=>i.id)));
   const lonely=it.filter(i=>i.pattern!=='solid'&&i.cat!=='acc'&&!used.has(i.id));
@@ -479,7 +497,25 @@ function patSvg(it){
   if(p==='print'){const cl=[a,b,c3];[[14,14],[36,12],[52,24],[22,34],[44,44],[14,52],[34,56]].forEach((q,i)=>{o+=i%2?`<rect x="${q[0]-5}" y="${q[1]-5}" width="10" height="10" fill="${cl[i%3]}" transform="rotate(${i*20} ${q[0]} ${q[1]})"/>`:`<circle cx="${q[0]}" cy="${q[1]}" r="6" fill="${cl[i%3]}"/>`;});}
   return o;
 }
-function icon(it){const id='c'+(++_ic);const c=it.hex;const extra=it.cat==='acc'?'<path d="M23 24v-6c0-8 18-8 18 0v6" fill="none" stroke="rgba(120,120,130,.8)" stroke-width="3" stroke-linecap="round"/>':'';
+function subOf(it){const n=(it.name||'').toLowerCase();
+  if(it.cat!=='acc')return null;
+  if(/сумк|рюкзак|клатч|шопер/.test(n))return 'bag';
+  if(/украшен|серьг|браслет|цеп|кольц|колье|часы|ожерел|подвес/.test(n))return 'jewelry';
+  if(/шарф|платок|палантин/.test(n))return 'scarf';
+  if(/кеп|шапк|шляп|панам|берет|бейсболк/.test(n))return 'hat';
+  if(/ремен|пояс/.test(n))return 'belt';
+  if(/очки/.test(n))return 'glasses';
+  return 'other';}
+function accIcon(it,sb){const c=esc(it.hex),st='rgba(120,120,130,.6)';let g='';
+  if(sb==='jewelry')g=`<circle cx="32" cy="30" r="17" fill="none" stroke="${c}" stroke-width="5"/><circle cx="32" cy="30" r="17" fill="none" stroke="${st}" stroke-width="1" stroke-dasharray="2 4"/><path d="M32 47l-5 9h10z" fill="${c}" stroke="${st}"/>`;
+  else if(sb==='glasses')g=`<circle cx="20" cy="34" r="11" fill="${c}" fill-opacity=".55" stroke="${c}" stroke-width="3"/><circle cx="44" cy="34" r="11" fill="${c}" fill-opacity=".55" stroke="${c}" stroke-width="3"/><path d="M31 33q1-3 2 0" stroke="${c}" stroke-width="3" fill="none"/>`;
+  else if(sb==='hat')g=`<path d="M10 40c0-13 10-22 22-22s22 9 22 22z" fill="${c}" stroke="${st}" stroke-width="1.5"/><path d="M40 40h20c0 4-8 6-20 6z" fill="${c}" stroke="${st}" stroke-width="1.5"/>`;
+  else if(sb==='scarf')g=`<path d="M20 8h24l-5 22 7 26H35l-3-20-3 20H17l7-26z" fill="${c}" stroke="${st}" stroke-width="1.5" stroke-linejoin="round"/>`;
+  else if(sb==='belt')g=`<rect x="4" y="27" width="56" height="10" rx="2" fill="${c}" stroke="${st}" stroke-width="1.5"/><rect x="26" y="24" width="12" height="16" rx="2" fill="none" stroke="rgba(160,160,170,.9)" stroke-width="3"/>`;
+  else return '';
+  return `<svg viewBox="0 0 64 64" aria-hidden="true">${g}</svg>`;}
+function icon(it){if(it.cat==='acc'){const r=accIcon(it,subOf(it));if(r)return r;}
+  const id='c'+(++_ic);const c=it.hex;const extra=it.cat==='acc'?'<path d="M23 24v-6c0-8 18-8 18 0v6" fill="none" stroke="rgba(120,120,130,.8)" stroke-width="3" stroke-linecap="round"/>':'';
   const ov=patSvg(it),sh=SHAPES[it.cat];
   return `<svg viewBox="0 0 64 64" aria-hidden="true"><defs><clipPath id="${id}"><path d="${sh}"/></clipPath></defs>${extra}<path d="${sh}" fill="${esc(c)}"/>${ov?`<g clip-path="url(#${id})">${ov}</g>`:''}<path d="${sh}" fill="none" stroke="rgba(120,120,130,.6)" stroke-width="1.5" stroke-linejoin="round"/></svg>`;}
 function thumb(it){return `<div class="thumb">${it.img?`<img src="${it.img}" alt="${esc(it.name)}">`:icon(it)}</div>`;}
@@ -602,10 +638,53 @@ function vLooks(){
   return h;
 }
 
+function pickAccs(l){
+  const all=S.items.filter(i=>i.cat==='acc'&&i.styles.includes(l.style)&&l.seasons.some(s=>i.seasons.includes(s)));
+  const shoeC=l.shoes?.color;
+  const sc=a=>(CK[a.color].neutral?1:0)+(l.colors.includes(a.color)?2:0)+(a.color===shoeC?1:0)-a.styles.indexOf(l.style)*.1;
+  const ok=all.filter(a=>CK[a.color].neutral||l.colors.includes(a.color)).sort((a,b)=>sc(b)-sc(a));
+  const by=s=>ok.find(a=>subOf(a)===s);const out=[];
+  const bag=by('bag'),jw=by('jewelry');if(bag)out.push(bag);if(jw)out.push(jw);
+  const cold=l.seasons.includes(2)||l.seasons.includes(3);
+  const pr=l.style==='business'?['belt','scarf','glasses']:cold?['scarf','belt','hat','glasses']:['glasses','hat','belt','scarf'];
+  for(const s of pr){const x=by(s);if(x){out.push(x);break;}}
+  return out;
+}
+const ACC_STYLE={minimal:'одна аккуратная деталь, образ остаётся чистым',evening:'добавляет нарядности',casual:'деталь без усилий, образ выглядит завершённым',
+  streetwear:'уличный акцент, который держит характер',business:'сдержанная деталь, уместная в офисе',sporty:'практичная деталь в спортивном духе'};
+function accWhy(l,a){
+  const sb=subOf(a),ck=a.color,shoe=l.shoes,st=l.style;
+  const gold=['yellow','orange','beige','brown'].includes(ck),silver=['grey','white','black'].includes(ck);
+  const echo=l.items.find(i=>i.color===ck&&!CK[ck].neutral);
+  const shoeEcho=shoe&&shoe.color===ck&&ck!=='white';
+  if(sb==='jewelry')return `${gold?'Тёплый золотистый металл оживляет нейтральные цвета и поддерживает тёплые оттенки образа.':silver?'Холодный серебристый блеск освежает образ и спокойно сочетается с нейтральной палитрой.':'Яркая деталь собирает внимание у лица и рук.'} В стиле ${STYLES[st].n}: ${ACC_STYLE[st]}.`;
+  if(sb==='bag')return `${echo?`Цвет повторяет «${echo.name}», поэтому образ выглядит собранным.`:CK[ck].neutral?'Нейтральный цвет ничего не перетягивает и работает с любой вещью образа.':'Этот цвет есть и в образе, поэтому сумка связана с остальным.'}${shoeEcho?' Совпадает с цветом обуви: классический приём «сумка к обуви».':''} Форма подходит стилю ${STYLES[st].n}.`;
+  if(sb==='scarf')return `Добавляет слой тепла и цвет рядом с лицом. ${CK[ck].neutral?'Нейтральный цвет легко сочетается с верхом.':'Яркий цвет становится акцентом, поэтому остальные вещи спокойные.'}`;
+  if(sb==='hat')return `Добавляет характер и защищает от солнца или холода. ${CK[ck].neutral?'Нейтральный цвет не спорит с одеждой.':'Цвет поддерживает цвета образа.'}`;
+  if(sb==='belt')return `Подчёркивает талию и связывает верх с низом.${shoeEcho?' Цвет совпадает с обувью: так образ выглядит продуманным.':''}`;
+  if(sb==='glasses')return 'Быстрый способ добавить характер, не меняя цвета образа. Защищают от солнца.';
+  return `${ACC_STYLE[st][0].toUpperCase()+ACC_STYLE[st].slice(1)}.`;
+}
+const T_O={top:{x:2,y:3,w:30,h:34},bottom:{x:3,y:42,w:29,h:52},outer:{x:34,y:2,w:34,h:58},jewelry:{x:37,y:66,w:24,h:22},bag:{x:70,y:22,w:27,h:30},shoes:{x:67,y:62,w:31,h:26},acc2:{x:70,y:2,w:26,h:18}};
+const T_N={top:{x:3,y:3,w:44,h:40},bottom:{x:6,y:46,w:36,h:50},bag:{x:56,y:6,w:36,h:34},jewelry:{x:52,y:44,w:20,h:16},acc2:{x:75,y:44,w:21,h:16},shoes:{x:50,y:64,w:44,h:28}};
+const T_DO={dress:{x:3,y:3,w:32,h:88},outer:T_O.outer,jewelry:T_O.jewelry,bag:T_O.bag,shoes:T_O.shoes,acc2:T_O.acc2};
+const T_D={dress:{x:4,y:4,w:42,h:88},bag:T_N.bag,jewelry:T_N.jewelry,acc2:T_N.acc2,shoes:T_N.shoes};
+function board(l,accs){
+  const dress=l.base.length===1,T=l.outer?(dress?T_DO:T_O):(dress?T_D:T_N);
+  const pl=[];const add=(role,it)=>{if(it&&T[role])pl.push([T[role],it]);};
+  if(dress)add('dress',l.base[0]);else{add('top',l.base[0]);add('bottom',l.base[1]);}
+  add('outer',l.outer);add('shoes',l.shoes);
+  accs.forEach(a=>{const s=subOf(a);add(s==='bag'?'bag':s==='jewelry'?'jewelry':'acc2',a);});
+  return `<div class="board" role="img" aria-label="Образ: ${esc([...l.items,...accs].map(i=>i.name).join(', '))}">${pl.map(([b,it])=>`<div class="slot" style="left:${b.x}%;top:${b.y}%;width:${b.w}%;height:${b.h}%">${it.img?`<img src="${it.img}" alt="">`:icon(it)}</div>`).join('')}</div>`;
+}
+function accBlock(l,accs){
+  if(!accs.length)return `<div class="small">Аксессуаров к этому образу пока нет. Добавьте сумку или украшения: они завершают образ.</div>`;
+  return `<div><div class="label" style="margin-bottom:8px">Аксессуары и украшения</div><ul class="acclist">${accs.map(a=>`<li>${thumb(a)}<div><b>${esc(a.name)}</b><p>${esc(accWhy(l,a))}</p></div></li>`).join('')}</ul></div>`;
+}
 function lookCard(l){
-  const st=l.style,acc=accFor(l);const items=acc?[...l.items,acc]:l.items;
+  const st=l.style,accs=pickAccs(l);const items=l.items;
   const reasons=[];
-  reasons.push(l.h.text+(acc?` Дополняет образ: ${acc.name.toLowerCase()}.`:''));
+  reasons.push(l.h.text);
   if(l.fitNote)reasons.push(l.fitNote);
   const fl=l.spread===0?'Все вещи одного уровня формальности':'Уровень формальности вещей близкий';
   reasons.push(`${STYLES[st].why} ${fl}.`);
@@ -613,8 +692,9 @@ function lookCard(l){
   if(l.outer)reasons.push(`${l.outer.name} добавляет слой: ${l.outer.rain?'защищает от дождя и ветра':l.outer.w>=3?'держит тепло':'спасает в прохладе'}.`);
   return `<article class="look">
    <div class="hd"><div><div class="label">${STYLES[st].n}</div><div class="ttl">${esc(title(l.h))}</div></div><div class="score" title="Насколько хорошо вещи сочетаются">${l.score}<small>из 100</small></div></div>
-   <div class="collage" style="grid-template-columns:repeat(${items.length>4?3:items.length>2?items.length:2},minmax(0,1fr))">${items.map(thumb).join('')}</div>
+   ${board(l,accs)}
    <div><div class="label" style="margin-bottom:8px">Из вашего гардероба</div><ul class="ilist">${items.map(i=>`<li>${dots(i)}<span class="nm">${esc(i.name)}</span><span class="cat">${CATS[i.cat]}</span></li>`).join('')}</ul></div>
+   ${accBlock(l,accs)}
    <div><div class="label" style="margin-bottom:8px">Почему сочетается</div><ul class="why">${reasons.map(r=>`<li>${CHECK}<span>${esc(r)}</span></li>`).join('')}</ul></div>
    <div class="where"><div class="label">Куда подойдёт</div>
      <div class="pillrow">${l.occ.length?l.occ.map(k=>`<span class="pill o">${esc(OCC[k].n)}</span>`).join(''):'<span class="pill o">На каждый день</span>'}</div>
