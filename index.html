@@ -253,9 +253,35 @@ const P=[
  ['Браслет','acc',0,3,'slim','minimal,evening,casual,business,streetwear','0123'],
  ['Часы','acc',0,4,'regular','business,minimal,casual,sporty,evening,streetwear','0123'],
  ['Очки','acc',0,2,'regular','casual,streetwear,minimal,sporty,evening','012'],
- ['Шапка','acc',1,1,'regular','casual,streetwear,sporty','23']
+ ['Шапка','acc',1,1,'regular','casual,streetwear,sporty','23'],
+ ['Широкие джинсы','bottoms',2,2,'oversize','streetwear,casual','0123'],
+ ['Узкие джинсы','bottoms',2,2,'slim','casual,streetwear','0123'],
+ ['Футболка оверсайз','tops',1,1,'oversize','streetwear,casual','012'],
+ ['Прямые брюки','bottoms',2,4,'regular','business,minimal,casual','0123']
 ].map((a,i)=>({i,name:a[0],cat:a[1],w:a[2],f:a[3],fit:a[4],styles:a[5].split(','),seasons:[...a[6]].map(Number),rain:!!a[7]}));
-const FITS={slim:'облегающий',regular:'прямой',oversize:'свободный'};
+const FITS={slim:'Slim fit · облегающий',regular:'Regular fit · прямой',oversize:'Oversize · свободный или широкий'};
+const FITL={tops:{slim:'Slim fit',regular:'Regular fit',oversize:'Oversize'},outer:{slim:'Slim fit',regular:'Regular fit',oversize:'Oversize'},
+  bottoms:{slim:'Slim · узкие',regular:'Regular · прямые',oversize:'Wide · широкие'},dresses:{slim:'облегающее',regular:'прямое',oversize:'свободное'}};
+function fitLabel(it){const m=FITL[it.cat];return m?m[it.fit]||'':'';}
+function fitInfo(top,bot,st){
+  const a=top.fit,b=bot.fit,pre=`«${top.name}» (${fitLabel(top)}) и «${bot.name}» (${fitLabel(bot)}) подходят под этот образ`;
+  if(a==='oversize'&&b==='slim')return{s:8,t:`${pre}: объём сверху уравновешен узким низом, силуэт выглядит собранно.`};
+  if(a==='slim'&&b==='oversize')return{s:8,t:`${pre}: облегающий верх не тонет в широком низе, пропорции выглядят выгодно.`};
+  if(a==='oversize'&&b==='oversize')return st==='streetwear'?{s:5,t:`${pre}: объём сверху и снизу даёт фирменный силуэт streetwear.`}
+    :{s:-4,t:`${pre}, но объёма много сразу. Чтобы силуэт не потерялся, заправьте верх или добавьте ремень.`};
+  if(a==='regular'&&b==='regular')return{s:5,t:`${pre}: прямой крой универсален и сочетается почти со всем.`};
+  if(a==='regular')return{s:6,t:`${pre}: прямой верх легко сочетается с ${b==='slim'?'узким':'широким'} низом.`};
+  if(b==='regular')return{s:6,t:`${pre}: прямой низ подходит и ${a==='slim'?'облегающему':'свободному'} верху.`};
+  return{s:2,t:`${pre}: две облегающие вещи дают чёткий силуэт.`};
+}
+function fitOuter(o,base){
+  const pre=`«${o.name}» (${fitLabel(o)})`,topF=base[0].fit;
+  if(o.fit==='oversize'&&base.every(i=>i.fit==='slim'))return{s:4,t:`${pre} поверх облегающих вещей добавляет объём, это выглядит как намеренный контраст.`};
+  if(o.fit==='oversize'&&base.every(i=>i.fit==='oversize'))return{s:-3,t:`${pre} поверх свободных вещей даёт слишком много объёма. Лучше взять куртку прямого кроя.`};
+  if(o.fit==='slim'&&topF==='oversize')return{s:-6,t:`${pre} поверх объёмного верха будет тесной в рукавах. Выбирайте крой пошире.`};
+  if(o.fit==='slim')return{s:3,t:`${pre} подчёркивает фигуру и держит чёткий силуэт.`};
+  return{s:3,t:`${pre} подходит под этот образ: прямой крой работает с любым верхом.`};
+}
 const PATS={solid:'Однотонная',print:'Принт',stripes:'Полоска',check:'Клетка',floral:'Цветочный принт',dots:'Горох',camo:'Камуфляж'};
 
 const DEMO=[
@@ -277,7 +303,9 @@ const DEMO=[
  ['Блузка в цветочек',2,'#f5f5f3',{pattern:'floral',colors:['white','pink','green']}],
  ['Юбка в горошек',11,'#1d1d21',{pattern:'dots',colors:['black','white']}],
  ['Камуфляжные широкие брюки',10,'#666a3a',{pattern:'camo',colors:['olive','khaki','black'],styles:['streetwear','casual']}],
- ['Клетчатые брюки',9,'#8a8d94',{pattern:'check',colors:['grey','black']}]
+ ['Клетчатые брюки',9,'#8a8d94',{pattern:'check',colors:['grey','black']}],
+ ['Широкие голубые джинсы',40,'#6f93c4'],['Чёрная футболка оверсайз',42,'#1b1b1f'],
+ ['Узкие серые джинсы',41,'#7d8088'],['Прямые бежевые брюки',43,'#d6c3a2']
 ];
 
 /* ===================== состояние ===================== */
@@ -287,8 +315,8 @@ let UI={cat:'all',style:'all',shown:{},queue:[],filtersOpen:true};
 function load(){
   try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);S=Object.assign(S,d);S.f=Object.assign({season:null,weather:null,rain:false,occ:null,colors:[]},d.f||{});}}catch(e){}
   S.items.forEach(i=>{if(!i.colors){i.colors=[i.color];i.pattern='solid';}});
-  if(!S.seeded){S.items=DEMO.map(d=>mk(d[0],P[d[1]],d[2],null,d[3]));S.seeded=true;S.demo=true;S.v=5;save();}
-  else if((S.v||0)<5){S.v=5;if(S.demo)DEMO.forEach(d=>{if(!S.items.some(i=>i.name===d[0]))S.items.push(mk(d[0],P[d[1]],d[2],null,d[3]));});save();}
+  if(!S.seeded){S.items=DEMO.map(d=>mk(d[0],P[d[1]],d[2],null,d[3]));S.seeded=true;S.demo=true;S.v=6;save();}
+  else if((S.v||0)<6){S.v=6;if(S.demo)DEMO.forEach(d=>{if(!S.items.some(i=>i.name===d[0]))S.items.push(mk(d[0],P[d[1]],d[2],null,d[3]));});save();}
 }
 let warned=false;
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){if(!warned){warned=true;toast('Память браузера заполнена: часть фото не сохранится.');}}}
@@ -375,18 +403,14 @@ function buildAll(){
     if(!best)continue;
     const fAvg=fs.reduce((a,b)=>a+b,0)/fs.length;
     let sc=h.s;const top=base.length===2?base[0]:null,bot=base.length===2?base[1]:null;
-    let fitNote=null;
-    if(top&&bot){
-      if((top.fit==='oversize'&&bot.fit==='slim')||(top.fit==='slim'&&bot.fit==='oversize')||(top.fit==='regular'&&bot.fit!=='regular'&&bot.fit!==top.fit)||(bot.fit==='regular'&&top.fit!=='regular')){sc+=6;
-        fitNote=`Баланс силуэта: ${FITS[top.fit]} верх и ${FITS[bot.fit]} низ уравновешивают друг друга.`;}
-      else if(top.fit==='oversize'&&bot.fit==='oversize'&&best.st==='streetwear'){sc+=3;fitNote='Свободный верх и свободный низ: фирменный объёмный силуэт streetwear.';}
-      else if(top.fit==='slim'&&bot.fit==='slim'){sc+=2;fitNote='Облегающие вещи держат чёткий силуэт.';}
-      else fitNote=`Силуэт ровный: ${FITS[top.fit]} верх и ${FITS[bot.fit]} низ.`;
-    }else if(base.length===1){fitNote=`Платье задаёт силуэт само: ${FITS[base[0].fit]} крой, остальное лишь дополняет.`;}
+    let fitNote=null,fitNote2=null;
+    if(top&&bot){const fi=fitInfo(top,bot,best.st);sc+=fi.s;fitNote=fi.t;}
+    else if(base.length===1){fitNote=`«${base[0].name}» (${fitLabel(base[0])}) задаёт силуэт сама, остальное её дополняет.`;}
+    if(o){const fo=fitOuter(o,base);sc+=fo.s;fitNote2=fo.t;}
     if(s)sc+=3;
     if(spread===2)sc-=15;else if(spread===1)sc-=3;
     const warm=all.reduce((a,i)=>a+i.w,0);
-    looks.push({id:looks.length,style:best.st,base,outer:o,shoes:s,items:all,core,score:Math.min(99,Math.round(sc)),h,fitNote,spread,fAvg,seasons:seas,warm,
+    looks.push({id:looks.length,style:best.st,base,outer:o,shoes:s,items:all,core,score:Math.min(99,Math.round(sc)),h,fitNote,fitNote2,spread,fAvg,seasons:seas,warm,
       colors:[...new Set(all.flatMap(i=>i.colors))],hasPat:all.some(i=>i.pattern!=='solid')});
   }
   for(const l of looks){l.weather=weatherOf(l);l.rainOk=!!(l.outer&&l.outer.rain&&(!l.shoes||l.shoes.w>=2));
@@ -414,6 +438,7 @@ function passes(l,f,skip){
   if(skip!=='rain'&&f.rain&&!l.rainOk)return false;
   if(skip!=='occ'&&f.occ&&!l.occ.includes(f.occ))return false;
   if(skip!=='colors'&&f.colors.length&&!f.colors.some(c=>l.colors.includes(c)))return false;
+  if(skip!=='fit'&&f.fit&&!l.items.some(i=>FITL[i.cat]&&i.fit===f.fit))return false;
   if(skip!=='pat'&&f.pat==='with'&&!l.hasPat)return false;
   if(skip!=='pat'&&f.pat==='without'&&l.hasPat)return false;
   return true;
@@ -482,6 +507,7 @@ function explainEmpty(){
   if(f.rain&&only('rain',l=>l.rainOk))out.push('Для дождя нужна ветровка или плащ. В карточке куртки отметьте «Защищает от дождя».');
   if(f.occ&&only('occ',l=>l.occ.includes(f.occ)))out.push(`Для случая «${OCC[f.occ].n.toLowerCase()}» не хватает вещей: ${OCC_NEED[f.occ]}.`);
   if(f.colors.length&&only('colors',l=>f.colors.some(c=>l.colors.includes(c))))out.push('В готовых образах нет выбранных цветов. Добавьте вещи этого цвета или уберите цвет из фильтра.');
+  if(f.fit&&only('fit',l=>l.items.some(i=>FITL[i.cat]&&i.fit===f.fit)))out.push(`Нет образов с вещами кроя «${FITL.tops[f.fit]}». Добавьте такую вещь, например ${f.fit==='oversize'?'футболку оверсайз или широкие джинсы':f.fit==='slim'?'узкие джинсы или приталенную рубашку':'прямые брюки или футболку прямого кроя'}.`);
   if(f.pat==='with'&&only('pat',l=>l.hasPat))out.push('Нет образов с рисунком: добавьте вещь с принтом и однотонную пару к ней.');
   if(!out.length)out.push('Каждый фильтр по отдельности даёт образы, но вместе они ничего не оставляют. Снимите один из фильтров.');
   return out;
@@ -579,7 +605,7 @@ function demoBanner(){return S.demo
   :`<div class="banner"><span><b>Хотите увидеть, как всё работает?</b> Вернём примеры вещей, образы появятся сразу.</span><button class="btn sm" data-act="restore-demo">Вернуть примеры</button></div>`;}
 function restoreDemo(){let n=0;
   DEMO.forEach(d=>{if(!S.items.some(i=>i.demo&&i.name===d[0])){S.items.push(mk(d[0],P[d[1]],d[2],null,d[3]));n++;}});
-  S.demo=true;S.v=5;save();render();toast(n?`Примеры возвращены: ${n}`:'Все примеры уже на месте');}
+  S.demo=true;S.v=6;save();render();toast(n?`Примеры возвращены: ${n}`:'Все примеры уже на месте');}
 
 function vUpload(){return `
   <h1>Добавьте свои вещи</h1>
@@ -609,7 +635,7 @@ function updateQueue(){
     return `<div class="qrow"><div class="th"><img src="${r.thumb}" alt=""></div><div class="bd">
       <div class="nm">${it?esc(it.name):'Фото'} ${it?`<span class="chip">${dots(it)}${esc(cname(it))}</span>`:''}</div>
       ${status}
-      ${it?`<div class="chips"><select data-act="qpreset" data-id="${it.id}" aria-label="Тип вещи">${presetOptions(r.state==='ai'?matchPreset(it):-1)}</select><button class="btn ghost sm" data-act="edit" data-id="${it.id}">Изменить</button></div>`:''}
+      ${it?`<div class="chips"><select data-act="qpreset" data-id="${it.id}" aria-label="Тип вещи">${presetOptions(r.state==='ai'?matchPreset(it):-1)}</select><select data-act="qfit" data-id="${it.id}" aria-label="Крой">${Object.keys(FITL.tops).map(k=>`<option value="${k}" ${k===it.fit?'selected':''}>${FITL.tops[k]}</option>`).join('')}</select><button class="btn ghost sm" data-act="edit" data-id="${it.id}">Изменить</button></div>`:''}
     </div></div>`;}).join('');
   if(UI.queue.some(r=>r.state!=='work'))q.insertAdjacentHTML('beforeend',`<a class="btn accent" style="text-align:center;text-decoration:none" href="#wardrobe">Готово, открыть гардероб</a>`);
 }
@@ -632,7 +658,7 @@ function vWardrobe(){
   ${list.length?'':`<div class="panel empty">В этой категории пока пусто.</div>`}
   <div class="grid">
     ${list.map(it=>`<button class="item" data-act="edit" data-id="${it.id}">${thumb(it)}<div class="t">${esc(it.name)}</div>
-      <div class="m">${dots(it)}<span>${esc(cname(it))} · ${esc(STYLES[it.styles[0]]?.n||'')}</span></div></button>`).join('')}
+      <div class="m">${dots(it)}<span>${esc(cname(it))} · ${esc(STYLES[it.styles[0]]?.n||'')}${fitLabel(it)?' · '+esc(fitLabel(it)):''}</span></div></button>`).join('')}
     <a class="item addcard" href="#upload"><span>+ Добавить вещь</span></a>
   </div>
   ${gapsBlock('Чего не хватает в гардеробе',gaps())}`;}
@@ -646,7 +672,7 @@ function fchips(group,opts,sel,multi){
 function vLooks(){
   const f=S.f,res=curate();
   const present=[...new Set(S.items.flatMap(i=>i.colors))];
-  const active=(f.season!==null?1:0)+(f.weather?1:0)+(f.rain?1:0)+(f.occ?1:0)+(f.pat?1:0)+f.colors.length;
+  const active=(f.season!==null?1:0)+(f.weather?1:0)+(f.rain?1:0)+(f.occ?1:0)+(f.pat?1:0)+(f.fit?1:0)+f.colors.length;
   const styleKeys=Object.keys(STYLES).filter(s=>res[s]?.length);
   const total=styleKeys.reduce((a,s)=>a+res[s].length,0);
   const shownStyles=UI.style==='all'?styleKeys:styleKeys.filter(s=>s===UI.style);
@@ -659,6 +685,7 @@ function vLooks(){
       <div class="frow"><span class="label">Погода</span><div class="chips">${Object.keys(WEATHER).map(k=>`<button class="chip" data-act="f-weather" data-v="${k}" aria-pressed="${f.weather===k}">${WEATHER[k]}</button>`).join('')}<button class="chip" data-act="f-rain" aria-pressed="${f.rain}">Дождь</button></div></div>
       <div class="frow"><span class="label">Случай</span>${fchips('occ',Object.keys(OCC).map(k=>({v:k,t:OCC[k].n})),f.occ,false)}</div>
       <div class="frow"><span class="label">Любимые цвета</span>${present.length?fchips('color',present.map(k=>({v:k,t:CK[k].ru,sw:CK[k].hex})),f.colors,true):'<span class="small">Добавьте вещи, чтобы выбрать цвета.</span>'}</div>
+      <div class="frow"><span class="label">Крой</span><div class="chips">${['oversize','regular','slim'].map(k=>`<button class="chip" data-act="f-fit" data-v="${k}" aria-pressed="${f.fit===k}">${FITL.tops[k]}</button>`).join('')}</div></div>
       <div class="frow"><span class="label">Принты</span><div class="chips"><button class="chip" data-act="f-pat" data-v="with" aria-pressed="${f.pat==='with'}">С принтом</button><button class="chip" data-act="f-pat" data-v="without" aria-pressed="${f.pat==='without'}">Только однотонные</button></div></div>
       ${active?`<div><button class="btn ghost sm" data-act="f-reset">Сбросить фильтры</button></div>`:''}
     </div></details></div>`;
@@ -779,6 +806,7 @@ function lookCard(l){
   const reasons=[];
   reasons.push(l.h.text);
   if(l.fitNote)reasons.push(l.fitNote);
+  if(l.fitNote2)reasons.push(l.fitNote2);
   const fl=l.spread===0?'Все вещи одного уровня формальности':'Уровень формальности вещей близкий';
   reasons.push(`${STYLES[st].why} ${fl}.`);
   const seasonTxt=l.seasons.length===4?'круглый год':l.seasons.map(s=>SEASONS[s].toLowerCase()).join(', ');
@@ -786,7 +814,7 @@ function lookCard(l){
   return `<article class="look">
    <div class="hd"><div><div class="label">${STYLES[st].n}</div><div class="ttl">${esc(title(l.h))}</div></div><div class="score" title="Насколько хорошо вещи сочетаются">${l.score}<small>из 100</small></div></div>
    ${board(l,accs)}
-   <div><div class="label" style="margin-bottom:8px">Из вашего гардероба</div><ul class="ilist">${items.map(i=>`<li>${dots(i)}<span class="nm">${esc(i.name)}</span><span class="cat">${CATS[i.cat]}</span></li>`).join('')}</ul></div>
+   <div><div class="label" style="margin-bottom:8px">Из вашего гардероба</div><ul class="ilist">${items.map(i=>`<li>${dots(i)}<span class="nm">${esc(i.name)}</span><span class="cat">${CATS[i.cat]}${fitLabel(i)?' · '+esc(fitLabel(i)):''}</span></li>`).join('')}</ul></div>
    ${accBlock(l,accs)}
    <div><div class="label" style="margin-bottom:8px">Почему сочетается</div><ul class="why">${reasons.map(r=>`<li>${CHECK}<span>${esc(r)}</span></li>`).join('')}</ul></div>
    <div class="where"><div class="label">Куда подойдёт</div>
@@ -812,7 +840,7 @@ function openEdit(id){
    <div class="row"><span class="label">Сезоны</span><div class="chips" id="e-seas">${SEASONS.map((s,i)=>`<button type="button" class="chip" data-n="${i}" aria-pressed="${it.seasons.includes(i)}">${s}</button>`).join('')}</div></div>
    <div class="row"><label class="label" for="e-w">Тепло: <b id="e-wv"></b></label><input type="range" id="e-w" min="0" max="4" step="1" value="${it.w}"></div>
    <div class="row"><label class="label" for="e-f">Строгость: <b id="e-fv"></b></label><input type="range" id="e-f" min="1" max="5" step="1" value="${it.f}"></div>
-   <div class="row"><label class="label" for="e-fit">Крой</label><select id="e-fit">${Object.keys(FITS).map(k=>`<option value="${k}" ${k===it.fit?'selected':''}>${FITS[k]}</option>`).join('')}</select></div>
+   <div class="row"><label class="label" for="e-fit">Крой (посадка)</label><select id="e-fit">${Object.keys(FITS).map(k=>`<option value="${k}" ${k===it.fit?'selected':''}>${FITS[k]}</option>`).join('')}</select></div>
    <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="e-rain" ${it.rain?'checked':''}> Защищает от дождя</label>
    <div class="acts"><button class="btn danger" id="e-del">Удалить</button><span style="display:flex;gap:8px"><button class="btn ghost" id="e-x">Отмена</button><button class="btn accent" id="e-ok">Сохранить</button></span></div></div>`;
   document.body.append(d);
@@ -884,7 +912,7 @@ function dominant(x,w,h){
 const PROMPT=`На фото одна вещь гардероба (одежда, обувь или аксессуар). Определи её.
 Ответь только JSON-объектом без пояснений:
 {"category":"tops|bottoms|outer|dresses|shoes|acc","name":"короткое русское название с цветом, например Белая футболка","pattern":"solid|print|stripes|check|floral|dots|camo","colors":["#rrggbb"],"styles":["casual","streetwear","business","minimal","sporty","evening"],"seasons":[0,1,2,3],"warmth":0,"formality":1,"fit":"slim|regular|oversize","rain":false}
-Пояснения: pattern: solid однотонная, print абстрактный рисунок или надпись, stripes полоска, check клетка, floral цветы, dots горох, camo камуфляж. colors: от 1 до 4 основных цветов самой вещи без фона (для однотонной один), главный цвет первым. category: tops верх, bottoms низ, outer верхняя одежда, dresses платья, shoes обувь, acc аксессуары.
+Пояснения: fit: slim облегающий крой, regular прямой, oversize свободный или широкий (для брюк и джинсов wide). pattern: solid однотонная, print абстрактный рисунок или надпись, stripes полоска, check клетка, floral цветы, dots горох, camo камуфляж. colors: от 1 до 4 основных цветов самой вещи без фона (для однотонной один), главный цвет первым. category: tops верх, bottoms низ, outer верхняя одежда, dresses платья, shoes обувь, acc аксессуары.
 styles: от 1 до 3 подходящих стилей, главный первым. seasons: когда носят (0 весна, 1 лето, 2 осень, 3 зима). warmth: 0 нет, 1 лёгкая, 2 средняя, 3 тёплая, 4 очень тёплая. formality: 1 спорт или дом, 3 смарт-кэжуал, 5 парадная. rain: true, если вещь защищает от дождя.`;
 async function recognize(blob){
   if(!sampleFn||!aiOK)return null;
@@ -941,6 +969,7 @@ document.addEventListener('click',e=>{
   else if(a==='f-rain')f.rain=!f.rain;
   else if(a==='f-occ')f.occ=f.occ===v?null:v;
   else if(a==='f-color')f.colors=f.colors.includes(v)?f.colors.filter(c=>c!==v):[...f.colors,v];
+  else if(a==='f-fit')f.fit=f.fit===v?null:v;
   else if(a==='f-pat')f.pat=f.pat===v?null:v;
   else if(a==='wpat')UI.pat=!UI.pat;
   else if(a==='f-reset')S.f={season:null,weather:null,rain:false,occ:null,colors:[]};
@@ -951,6 +980,7 @@ document.addEventListener('click',e=>{
 document.addEventListener('change',e=>{
   const t=e.target;
   if(t.id==='file'){handleFiles(t.files);t.value='';}
+  if(t.dataset?.act==='qfit'){const it=S.items.find(i=>i.id===t.dataset.id);if(it){it.fit=t.value;save();toast('Крой задан');}return;}
   if(t.dataset?.act==='qpreset'){const it=S.items.find(i=>i.id===t.dataset.id),p=P[+t.value];if(!it||!p)return;
     Object.assign(it,{cat:p.cat,styles:[...p.styles],seasons:[...p.seasons],w:p.w,f:p.f,fit:p.fit,rain:p.rain,name:/Новая вещь/.test(it.name)?(CK[it.color].ru[0].toUpperCase()+CK[it.color].ru.slice(1)+' · '+p.name.toLowerCase()):it.name});
     const r=UI.queue.find(r=>r.itemId===it.id);if(r){r.state='ai';}save();updateQueue();toast('Тип вещи задан');}
