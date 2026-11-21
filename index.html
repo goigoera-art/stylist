@@ -247,11 +247,11 @@ const P=[
  ['Рюкзак','acc',0,1,'regular','casual,streetwear,sporty','0123'],
  ['Шарф','acc',1,2,'regular','casual,minimal,business,streetwear','23'],
  ['Кепка','acc',0,1,'regular','casual,streetwear,sporty','012'],
- ['Ремень','acc',0,3,'regular','business,casual,minimal','0123'],
+ ['Ремень','acc',0,3,'regular','business,casual,minimal,streetwear','0123'],
  ['Украшения','acc',0,4,'slim','evening,minimal,casual,business','0123'],
  ['Серьги','acc',0,4,'slim','evening,minimal,casual,business','0123'],
  ['Браслет','acc',0,3,'slim','minimal,evening,casual,business,streetwear','0123'],
- ['Часы','acc',0,4,'regular','business,minimal,casual,sporty','0123'],
+ ['Часы','acc',0,4,'regular','business,minimal,casual,sporty,evening,streetwear','0123'],
  ['Очки','acc',0,2,'regular','casual,streetwear,minimal,sporty,evening','012'],
  ['Шапка','acc',1,1,'regular','casual,streetwear,sporty','23']
 ].map((a,i)=>({i,name:a[0],cat:a[1],w:a[2],f:a[3],fit:a[4],styles:a[5].split(','),seasons:[...a[6]].map(Number),rain:!!a[7]}));
@@ -270,7 +270,8 @@ const DEMO=[
  ['Клетчатая рубашка',1,'#b02a2a',{pattern:'check',colors:['red','black'],styles:['casual','streetwear'],f:2}],
  ['Худи с принтом',6,'#f0c93a',{pattern:'print',colors:['yellow','black','white']}],
  ['Серебряный браслет',36,'#b9bcc4'],['Золотые серьги',35,'#d4af37'],['Часы с чёрным ремешком',37,'#1b1b1f'],
- ['Чёрные солнечные очки',38,'#1b1b1f'],['Серая шапка',39,'#8d9097']
+ ['Чёрные солнечные очки',38,'#1b1b1f'],['Серая шапка',39,'#8d9097'],
+ ['Чёрный кожаный ремень',33,'#1b1b1f'],['Коричневый кожаный ремень',33,'#6e4a2e']
 ];
 
 /* ===================== состояние ===================== */
@@ -280,8 +281,8 @@ let UI={cat:'all',style:'all',shown:{},queue:[],filtersOpen:true};
 function load(){
   try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);S=Object.assign(S,d);S.f=Object.assign({season:null,weather:null,rain:false,occ:null,colors:[]},d.f||{});}}catch(e){}
   S.items.forEach(i=>{if(!i.colors){i.colors=[i.color];i.pattern='solid';}});
-  if(!S.seeded){S.items=DEMO.map(d=>mk(d[0],P[d[1]],d[2],null,d[3]));S.seeded=true;S.demo=true;S.v=3;save();}
-  else if((S.v||0)<3){S.v=3;if(S.demo)DEMO.forEach(d=>{if(!S.items.some(i=>i.name===d[0]))S.items.push(mk(d[0],P[d[1]],d[2],null,d[3]));});save();}
+  if(!S.seeded){S.items=DEMO.map(d=>mk(d[0],P[d[1]],d[2],null,d[3]));S.seeded=true;S.demo=true;S.v=4;save();}
+  else if((S.v||0)<4){S.v=4;if(S.demo)DEMO.forEach(d=>{if(!S.items.some(i=>i.name===d[0]))S.items.push(mk(d[0],P[d[1]],d[2],null,d[3]));});save();}
 }
 let warned=false;
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){if(!warned){warned=true;toast('Память браузера заполнена: часть фото не сохранится.');}}}
@@ -502,7 +503,8 @@ function patSvg(it){
 function subOf(it){const n=(it.name||'').toLowerCase();
   if(it.cat!=='acc')return null;
   if(/сумк|рюкзак|клатч|шопер/.test(n))return 'bag';
-  if(/украшен|серьг|браслет|цеп|кольц|колье|часы|ожерел|подвес/.test(n))return 'jewelry';
+  if(/часы/.test(n))return 'watch';
+  if(/украшен|серьг|браслет|цеп|кольц|колье|ожерел|подвес/.test(n))return 'jewelry';
   if(/шарф|платок|палантин/.test(n))return 'scarf';
   if(/кеп|шапк|шляп|панам|берет|бейсболк/.test(n))return 'hat';
   if(/ремен|пояс/.test(n))return 'belt';
@@ -510,12 +512,13 @@ function subOf(it){const n=(it.name||'').toLowerCase();
   return 'other';}
 function accIcon(it,sb){const c=esc(it.hex),st='rgba(120,120,130,.6)';let g='';
   if(sb==='jewelry')g=`<circle cx="32" cy="30" r="17" fill="none" stroke="${c}" stroke-width="5"/><circle cx="32" cy="30" r="17" fill="none" stroke="${st}" stroke-width="1" stroke-dasharray="2 4"/><path d="M32 47l-5 9h10z" fill="${c}" stroke="${st}"/>`;
+  else if(sb==='watch')g=`<rect x="25" y="4" width="14" height="56" rx="4" fill="${c}" stroke="${st}"/><circle cx="32" cy="32" r="13" fill="#f3f3f1" stroke="${c}" stroke-width="4"/><path d="M32 25v8l5 3" stroke="${c}" stroke-width="2" fill="none" stroke-linecap="round"/>`;
   else if(sb==='glasses')g=`<circle cx="20" cy="34" r="11" fill="${c}" fill-opacity=".55" stroke="${c}" stroke-width="3"/><circle cx="44" cy="34" r="11" fill="${c}" fill-opacity=".55" stroke="${c}" stroke-width="3"/><path d="M31 33q1-3 2 0" stroke="${c}" stroke-width="3" fill="none"/>`;
   else if(sb==='hat')g=`<path d="M10 40c0-13 10-22 22-22s22 9 22 22z" fill="${c}" stroke="${st}" stroke-width="1.5"/><path d="M40 40h20c0 4-8 6-20 6z" fill="${c}" stroke="${st}" stroke-width="1.5"/>`;
   else if(sb==='scarf')g=`<path d="M20 8h24l-5 22 7 26H35l-3-20-3 20H17l7-26z" fill="${c}" stroke="${st}" stroke-width="1.5" stroke-linejoin="round"/>`;
   else if(sb==='belt')g=`<rect x="4" y="27" width="56" height="10" rx="2" fill="${c}" stroke="${st}" stroke-width="1.5"/><rect x="26" y="24" width="12" height="16" rx="2" fill="none" stroke="rgba(160,160,170,.9)" stroke-width="3"/>`;
   else return '';
-  return `<svg viewBox="0 0 64 64" aria-hidden="true">${g}</svg>`;}
+  return `<svg viewBox="${sb==='belt'?'0 22 64 20':'0 0 64 64'}" aria-hidden="true">${g}</svg>`;}
 function icon(it){if(it.cat==='acc'){const r=accIcon(it,subOf(it));if(r)return r;}
   const id='c'+(++_ic);const c=it.hex;const extra=it.cat==='acc'?'<path d="M23 24v-6c0-8 18-8 18 0v6" fill="none" stroke="rgba(120,120,130,.8)" stroke-width="3" stroke-linecap="round"/>':'';
   const ov=patSvg(it),sh=SHAPES[it.cat];
@@ -646,9 +649,10 @@ function pickAccs(l){
   const sc=a=>(CK[a.color].neutral?1:0)+(l.colors.includes(a.color)?2:0)+(a.color===shoeC?1:0)-a.styles.indexOf(l.style)*.1;
   const ok=all.filter(a=>CK[a.color].neutral||l.colors.includes(a.color)).sort((a,b)=>sc(b)-sc(a));
   const by=s=>ok.find(a=>subOf(a)===s);const out=[];
-  const bag=by('bag'),jw=by('jewelry');if(bag)out.push(bag);if(jw)out.push(jw);
+  const bag=by('bag'),jw=by('jewelry'),wt=by('watch'),bt=l.base.length===2?by('belt'):null;
+  [bag,jw,wt,bt].forEach(x=>{if(x)out.push(x);});
   const cold=l.seasons.includes(2)||l.seasons.includes(3);
-  const pr=l.style==='business'?['belt','scarf','glasses']:cold?['scarf','belt','hat','glasses']:['glasses','hat','belt','scarf'];
+  const pr=l.style==='business'?['scarf','glasses']:cold?['scarf','hat','glasses']:['glasses','hat','scarf'];
   for(const s of pr){const x=by(s);if(x){out.push(x);break;}}
   return out;
 }
@@ -664,19 +668,21 @@ function accWhy(l,a){
   if(sb==='scarf')return `Добавляет слой тепла и цвет рядом с лицом. ${CK[ck].neutral?'Нейтральный цвет легко сочетается с верхом.':'Яркий цвет становится акцентом, поэтому остальные вещи спокойные.'}`;
   if(sb==='hat')return `Добавляет характер и защищает от солнца или холода. ${CK[ck].neutral?'Нейтральный цвет не спорит с одеждой.':'Цвет поддерживает цвета образа.'}`;
   if(sb==='belt')return `Подчёркивает талию и связывает верх с низом.${shoeEcho?' Цвет совпадает с обувью: так образ выглядит продуманным.':''}`;
+  if(sb==='watch')return `${CK[ck].neutral?'Нейтральный цвет подходит к любой вещи образа.':'Яркий цвет станет акцентом на запястье.'} ${st==='business'?'Для делового образа это важная деталь.':st==='sporty'?'Практично и подходит спортивному стилю.':st==='evening'?'Делает образ нарядным.':'Небольшая деталь на запястье завершает образ.'}${shoeEcho?' Ремешок в цвет обуви выглядит продуманно.':''}`;
   if(sb==='glasses')return 'Быстрый способ добавить характер, не меняя цвета образа. Защищают от солнца.';
   return `${ACC_STYLE[st][0].toUpperCase()+ACC_STYLE[st].slice(1)}.`;
 }
-const T_O={top:{x:2,y:3,w:30,h:34},bottom:{x:3,y:42,w:29,h:52},outer:{x:34,y:2,w:34,h:58},jewelry:{x:37,y:66,w:24,h:22},bag:{x:70,y:22,w:27,h:30},shoes:{x:67,y:62,w:31,h:26},acc2:{x:70,y:2,w:26,h:18}};
-const T_N={top:{x:3,y:3,w:44,h:40},bottom:{x:6,y:46,w:36,h:50},bag:{x:56,y:6,w:36,h:34},jewelry:{x:52,y:44,w:20,h:16},acc2:{x:75,y:44,w:21,h:16},shoes:{x:50,y:64,w:44,h:28}};
-const T_DO={dress:{x:3,y:3,w:32,h:88},outer:T_O.outer,jewelry:T_O.jewelry,bag:T_O.bag,shoes:T_O.shoes,acc2:T_O.acc2};
-const T_D={dress:{x:4,y:4,w:42,h:88},bag:T_N.bag,jewelry:T_N.jewelry,acc2:T_N.acc2,shoes:T_N.shoes};
+const T_O={top:{x:2,y:2,w:30,h:32},belt:{x:3,y:35,w:29,h:6},bottom:{x:3,y:43,w:29,h:51},outer:{x:34,y:2,w:34,h:58},jewelry:{x:37,y:66,w:24,h:21},watch:{x:37,y:88,w:24,h:11},bag:{x:70,y:22,w:27,h:30},shoes:{x:67,y:62,w:31,h:26},acc2:{x:70,y:2,w:26,h:18}};
+const T_N={top:{x:3,y:3,w:44,h:39},belt:{x:8,y:43,w:32,h:5},bottom:{x:6,y:49,w:36,h:47},bag:{x:56,y:4,w:36,h:32},jewelry:{x:52,y:37,w:20,h:14},watch:{x:75,y:37,w:21,h:14},acc2:{x:56,y:53,w:34,h:11},shoes:{x:50,y:66,w:44,h:28}};
+const T_DO={dress:{x:3,y:3,w:32,h:88},outer:T_O.outer,jewelry:T_O.jewelry,watch:T_O.watch,bag:T_O.bag,shoes:T_O.shoes,acc2:T_O.acc2};
+const T_D={dress:{x:4,y:4,w:42,h:88},bag:T_N.bag,jewelry:T_N.jewelry,watch:T_N.watch,acc2:T_N.acc2,shoes:T_N.shoes};
 function board(l,accs){
   const dress=l.base.length===1,T=l.outer?(dress?T_DO:T_O):(dress?T_D:T_N);
   const pl=[];const add=(role,it)=>{if(it&&T[role])pl.push([T[role],it]);};
   if(dress)add('dress',l.base[0]);else{add('top',l.base[0]);add('bottom',l.base[1]);}
   add('outer',l.outer);add('shoes',l.shoes);
-  accs.forEach(a=>{const s=subOf(a);add(s==='bag'?'bag':s==='jewelry'?'jewelry':'acc2',a);});
+  const R={bag:'bag',jewelry:'jewelry',watch:'watch',belt:'belt'};
+  accs.forEach(a=>add(R[subOf(a)]||'acc2',a));
   return `<div class="board" role="img" aria-label="Образ: ${esc([...l.items,...accs].map(i=>i.name).join(', '))}">${pl.map(([b,it])=>`<div class="slot" style="left:${b.x}%;top:${b.y}%;width:${b.w}%;height:${b.h}%">${it.img?`<img src="${it.img}" alt="">`:icon(it)}</div>`).join('')}</div>`;
 }
 function accBlock(l,accs){
@@ -694,13 +700,23 @@ function improveTips(l,accs){
     out.push(`Сумка: ${kind}${shoeC?`, лучше цвета обуви (${shoeC})`:', лучше нейтрального цвета'}. Она завершит образ и свяжет цвета.`);
   }
   if(!has('jewelry')){
-    const kind={minimal:'тонкая цепочка или маленькие серьги',evening:'выразительные серьги или браслет',business:'часы или небольшие серьги-гвоздики',streetwear:'массивная цепь или кольца',sporty:'спортивные часы'}[st]||'тонкий браслет или серьги';
+    const kind={minimal:'тонкая цепочка или маленькие серьги',evening:'выразительные серьги или браслет',business:'небольшие серьги-гвоздики или тонкий браслет',streetwear:'массивная цепь или кольца',sporty:'тонкая цепочка или спортивный браслет'}[st]||'тонкий браслет или серьги';
     out.push(`Украшения: ${kind} ${metal} металла. ${warm?'Тёплый металл поддержит тёплые оттенки образа.':'Холодный металл освежит нейтральную палитру.'}`);
   }
-  const extra=accs.some(a=>['scarf','hat','belt','glasses'].includes(subOf(a)));
+  const dressLook=l.base.length===1;
+  if(!dressLook&&!has('belt')&&st!=='sporty'){
+    const bot=l.base[1],jeans=/джинс|карго/i.test(bot.name);
+    const kind={business:'тонкий кожаный ремень с небольшой пряжкой',evening:'тонкий ремень, который подчеркнёт талию',streetwear:'тканевый ремень или ремень с крупной пряжкой'}[st]||'кожаный ремень средней ширины';
+    const col=shoeC?`цвета обуви (${shoeC})`:`в цвет низа (${CK[bot.color].ru})`;
+    out.push(`Ремень: ${kind}, ${col}. Ширина ${jeans?'3–4 см, под джинсы нужен плотнее':'2–3 см, для брюк лучше тоньше'}, пряжка ${metal} металла.`);
+  }
+  if(!has('watch')){
+    const kind={business:'классические часы с тонким корпусом и кожаным ремешком',evening:'изящные часы с металлическим браслетом',sporty:'спортивные часы или фитнес-браслет',streetwear:'крупные или цифровые часы',minimal:'минималистичные часы с лаконичным циферблатом'}[st]||'часы с тканевым или кожаным ремешком';
+    out.push(`Часы: ${kind}. ${shoeC&&st!=='sporty'?`Ремешок лучше в цвет обуви (${shoeC}) или ремня.`:'Цвет ремешка выберите в тон основной вещи.'}`);
+  }
+  const extra=accs.some(a=>['scarf','hat','glasses'].includes(subOf(a)));
   if(!extra){
-    if(st==='business')out.push(`Ремень${shoeC?` цвета обуви (${shoeC})`:''}: подчеркнёт талию и сделает образ аккуратнее.`);
-    else if(cold)out.push(`Шарф или шапка: добавят тепла и цвет рядом с лицом${l.h.type==='neutral'||l.h.type==='mono'?', удобное место для акцента':''}.`);
+    if(cold)out.push(`Шарф или шапка: добавят тепла и цвет рядом с лицом${l.h.type==='neutral'||l.h.type==='mono'?', удобное место для акцента':''}.`);
     else out.push('Солнечные очки или кепка: быстрый способ добавить характер и защититься от солнца.');
   }
   if(l.h.type==='neutral'||l.h.type==='mono'){
@@ -714,7 +730,7 @@ function improveTips(l,accs){
   if(!l.outer&&(l.seasons.includes(0)||l.seasons.includes(2))){
     out.push(`На случай прохлады: ${st==='business'?'пиджак или лёгкий плащ':'лёгкая куртка или кардиган'}.`);
   }
-  return out.slice(0,5);
+  return out.slice(0,8);
 }
 function improveBlock(l,accs){
   const t=improveTips(l,accs);if(!t.length)return '';
