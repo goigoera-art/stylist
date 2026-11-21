@@ -541,7 +541,12 @@ function render(){
   el.innerHTML=t==='upload'?vUpload():t==='wardrobe'?vWardrobe():vLooks();
   if(t==='upload')updateQueue();
 }
-function demoBanner(){return S.demo?`<div class="banner"><span><b>Показан пример гардероба.</b> Загрузите свои вещи, а потом очистите пример.</span><button class="btn sm" data-act="clear-demo">Убрать пример</button></div>`:'';}
+function demoBanner(){return S.demo
+  ?`<div class="banner"><span><b>Показан пример гардероба.</b> Загрузите свои вещи, а потом уберите пример.</span><span class="chips"><button class="btn sm" data-act="clear-demo">Убрать пример</button><button class="btn sm ghost" data-act="restore-demo">Вернуть удалённые</button></span></div>`
+  :`<div class="banner"><span><b>Хотите увидеть, как всё работает?</b> Вернём примеры вещей, образы появятся сразу.</span><button class="btn sm" data-act="restore-demo">Вернуть примеры</button></div>`;}
+function restoreDemo(){let n=0;
+  DEMO.forEach(d=>{if(!S.items.some(i=>i.demo&&i.name===d[0])){S.items.push(mk(d[0],P[d[1]],d[2],null,d[3]));n++;}});
+  S.demo=true;S.v=4;save();render();toast(n?`Примеры возвращены: ${n}`:'Все примеры уже на месте');}
 
 function vUpload(){return `
   <h1>Добавьте свои вещи</h1>
@@ -893,6 +898,7 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act,v=b.dataset.v,f=S.f;
   if(a==='fold'){e.preventDefault();UI.filtersOpen=!UI.filtersOpen;b.parentElement.open=UI.filtersOpen;return;}
   if(a==='edit'){openEdit(b.dataset.id);return;}
+  if(a==='restore-demo'){restoreDemo();return;}
   if(a==='clear-demo'){S.items=S.items.filter(i=>!i.demo);S.demo=false;save();render();toast('Пример убран');return;}
   if(a==='cat')UI.cat=v;
   else if(a==='style')UI.style=v;
