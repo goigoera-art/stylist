@@ -271,7 +271,13 @@ const DEMO=[
  ['Худи с принтом',6,'#f0c93a',{pattern:'print',colors:['yellow','black','white']}],
  ['Серебряный браслет',36,'#b9bcc4'],['Золотые серьги',35,'#d4af37'],['Часы с чёрным ремешком',37,'#1b1b1f'],
  ['Чёрные солнечные очки',38,'#1b1b1f'],['Серая шапка',39,'#8d9097'],
- ['Чёрный кожаный ремень',33,'#1b1b1f'],['Коричневый кожаный ремень',33,'#6e4a2e']
+ ['Чёрный кожаный ремень',33,'#1b1b1f'],['Коричневый кожаный ремень',33,'#6e4a2e'],
+ ['Футболка с принтом',0,'#f2f2f0',{pattern:'print',colors:['white','red','black']}],
+ ['Полосатый лонгслив',4,'#22304f',{pattern:'stripes',colors:['navy','white']}],
+ ['Блузка в цветочек',2,'#f5f5f3',{pattern:'floral',colors:['white','pink','green']}],
+ ['Юбка в горошек',11,'#1d1d21',{pattern:'dots',colors:['black','white']}],
+ ['Камуфляжные широкие брюки',10,'#666a3a',{pattern:'camo',colors:['olive','khaki','black'],styles:['streetwear','casual']}],
+ ['Клетчатые брюки',9,'#8a8d94',{pattern:'check',colors:['grey','black']}]
 ];
 
 /* ===================== состояние ===================== */
@@ -281,8 +287,8 @@ let UI={cat:'all',style:'all',shown:{},queue:[],filtersOpen:true};
 function load(){
   try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);S=Object.assign(S,d);S.f=Object.assign({season:null,weather:null,rain:false,occ:null,colors:[]},d.f||{});}}catch(e){}
   S.items.forEach(i=>{if(!i.colors){i.colors=[i.color];i.pattern='solid';}});
-  if(!S.seeded){S.items=DEMO.map(d=>mk(d[0],P[d[1]],d[2],null,d[3]));S.seeded=true;S.demo=true;S.v=4;save();}
-  else if((S.v||0)<4){S.v=4;if(S.demo)DEMO.forEach(d=>{if(!S.items.some(i=>i.name===d[0]))S.items.push(mk(d[0],P[d[1]],d[2],null,d[3]));});save();}
+  if(!S.seeded){S.items=DEMO.map(d=>mk(d[0],P[d[1]],d[2],null,d[3]));S.seeded=true;S.demo=true;S.v=5;save();}
+  else if((S.v||0)<5){S.v=5;if(S.demo)DEMO.forEach(d=>{if(!S.items.some(i=>i.name===d[0]))S.items.push(mk(d[0],P[d[1]],d[2],null,d[3]));});save();}
 }
 let warned=false;
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){if(!warned){warned=true;toast('Память браузера заполнена: часть фото не сохранится.');}}}
@@ -417,14 +423,17 @@ function curate(){
   const list=buildAll().filter(l=>passes(l,f));
   const fav=l=>f.colors.filter(c=>l.colors.includes(c)).length;
   list.sort((a,b)=>fav(b)-fav(a)||b.score-a.score);
+  const gl={};
   for(const l of list){
     const arr=res[l.style]=res[l.style]||[];
     if(arr.length>=16)continue;
+    if(l.items.some(i=>i.pattern!=='solid'&&(gl[i.id]||0)>=3))continue;
     const baseKey=l.base.map(i=>i.id).join('+');
     if(arr.some(x=>x.base.map(i=>i.id).join('+')===baseKey&&x.shoes===l.shoes))continue;
     const sameBase=arr.filter(x=>x.base.map(i=>i.id).join('+')===baseKey).length;if(sameBase>=2)continue;
     const use={};arr.forEach(x=>x.items.forEach(i=>use[i.id]=(use[i.id]||0)+1));
     if(l.items.some(i=>(use[i.id]||0)>=4))continue;
+    l.items.forEach(i=>{if(i.pattern!=='solid')gl[i.id]=(gl[i.id]||0)+1;});
     arr.push(l);
   }
   return res;
@@ -487,6 +496,30 @@ const SHAPES={
  shoes:'M8 40c0-6 6-8 12-6l6-10 6 4c4 4 12 6 22 8 4 2 4 10 0 10H10c-2 0-2-2-2-6z',
  acc:'M14 24h36l4 30H10z'
 };
+const HOOD='M22 8 12 13 6 46l10 2 4-20v28h24V28l4 20 10-2-6-33-10-5C40 3 24 3 22 8z';
+const LONG='M22 8 12 13 6 48l10 2 4-22v28h24V28l4 22 10-2-6-35-10-5c-2 4-6 6-10 6s-8-2-10-6z';
+const TANK='M24 6h4c1 8 7 8 8 0h4l4 18-2 32H22L20 24z';
+const SHORTS='M18 14h28l4 30H35L32 26l-3 18H14z';
+const SKIRT='M22 10h20l12 46H10z';
+const WIDE='M16 8h32l8 50H36L32 30l-4 28H8z';
+const COAT='M23 6 9 13l2 48h16V32h10v29h16l2-48-14-7-9 12z';
+const BOOT='M16 8h18v24c8 2 18 6 22 12 2 4 0 8-4 8H12c-2 0-4-2-4-6z';
+function shapeOf(it){const n=(it.name||'').toLowerCase().replace(/ё/g,'е');let d=SHAPES[it.cat],x='';
+  if(it.cat==='tops'){
+    if(/худи|толстовк/.test(n)){d=HOOD;x='M24 8c2 7 14 7 16 0M25 43h14l2 9H23z';}
+    else if(/свитер|лонгслив|джемпер|кардиган/.test(n)){d=LONG;x='M20 53h24';}
+    else if(/рубашк|блузк/.test(n)){d=LONG;x='M26 8l6 11 6-11M32 19v37';}
+    else if(/(^|\s)(топ|майк)/.test(n)){d=TANK;}
+  }else if(it.cat==='bottoms'){
+    if(/шорт/.test(n))d=SHORTS;else if(/юбк/.test(n))d=SKIRT;else if(/широк/.test(n))d=WIDE;
+  }else if(it.cat==='outer'){
+    if(/пальто|плащ/.test(n)){d=COAT;x='M32 18v43';}
+    else if(/пуховик/.test(n))x='M12 26h40M12 40h40';
+    else x='M32 18v38';
+  }else if(it.cat==='shoes'){
+    if(/ботин|сапог/.test(n))d=BOOT;
+  }
+  return{d,x};}
 let _ic=0;
 function patSvg(it){
   const p=it.pattern;if(p==='solid')return '';
@@ -521,8 +554,8 @@ function accIcon(it,sb){const c=esc(it.hex),st='rgba(120,120,130,.6)';let g='';
   return `<svg viewBox="${sb==='belt'?'0 22 64 20':'0 0 64 64'}" aria-hidden="true">${g}</svg>`;}
 function icon(it){if(it.cat==='acc'){const r=accIcon(it,subOf(it));if(r)return r;}
   const id='c'+(++_ic);const c=it.hex;const extra=it.cat==='acc'?'<path d="M23 24v-6c0-8 18-8 18 0v6" fill="none" stroke="rgba(120,120,130,.8)" stroke-width="3" stroke-linecap="round"/>':'';
-  const ov=patSvg(it),sh=SHAPES[it.cat];
-  return `<svg viewBox="0 0 64 64" aria-hidden="true"><defs><clipPath id="${id}"><path d="${sh}"/></clipPath></defs>${extra}<path d="${sh}" fill="${esc(c)}"/>${ov?`<g clip-path="url(#${id})">${ov}</g>`:''}<path d="${sh}" fill="none" stroke="rgba(120,120,130,.6)" stroke-width="1.5" stroke-linejoin="round"/></svg>`;}
+  const ov=patSvg(it),sp=shapeOf(it),sh=sp.d;
+  return `<svg viewBox="0 0 64 64" aria-hidden="true"><defs><clipPath id="${id}"><path d="${sh}"/></clipPath></defs>${extra}<path d="${sh}" fill="${esc(c)}"/>${ov?`<g clip-path="url(#${id})">${ov}</g>`:''}<path d="${sh}" fill="none" stroke="rgba(120,120,130,.6)" stroke-width="1.5" stroke-linejoin="round"/>${sp.x?`<path d="${sp.x}" fill="none" stroke="rgba(120,120,130,.7)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`:''}</svg>`;}
 function thumb(it){return `<div class="thumb">${it.img?`<img src="${it.img}" alt="${esc(it.name)}">`:icon(it)}</div>`;}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function plural(n,a,b,c){n=Math.abs(n)%100;const m=n%10;if(n>10&&n<20)return c;if(m>1&&m<5)return b;if(m===1)return a;return c;}
@@ -546,7 +579,7 @@ function demoBanner(){return S.demo
   :`<div class="banner"><span><b>Хотите увидеть, как всё работает?</b> Вернём примеры вещей, образы появятся сразу.</span><button class="btn sm" data-act="restore-demo">Вернуть примеры</button></div>`;}
 function restoreDemo(){let n=0;
   DEMO.forEach(d=>{if(!S.items.some(i=>i.demo&&i.name===d[0])){S.items.push(mk(d[0],P[d[1]],d[2],null,d[3]));n++;}});
-  S.demo=true;S.v=4;save();render();toast(n?`Примеры возвращены: ${n}`:'Все примеры уже на месте');}
+  S.demo=true;S.v=5;save();render();toast(n?`Примеры возвращены: ${n}`:'Все примеры уже на месте');}
 
 function vUpload(){return `
   <h1>Добавьте свои вещи</h1>
